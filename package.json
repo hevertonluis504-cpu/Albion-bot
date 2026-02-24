@@ -1,14 +1,1 @@
-
-{
-  "name": "avalon-bot-v4-emojis",
-  "version": "4.0.0",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "deploy": "node deploy-commands.js"
-  },
-  "dependencies": {
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.4.5"
-  }
-}
+{"name":"albion-bot","version":"1.0.0","description":"Bot para gerenciar grupos de conteúdo","main":"index.js","dependencies":{"discord.js":"^14.0.0","discord-player":"^6.7.0","@discord-player/extractor":"^4.4.0","dotenv":"^16.0.0"}}
