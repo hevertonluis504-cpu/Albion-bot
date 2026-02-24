@@ -1,0 +1,770 @@
+{
+  "1472595201171259505": {
+    "title": "**DG DE GRUPO**",
+    "total": 6,
+    "roles": {
+      "TANK": {
+        "name": "TANK",
+        "limit": 1
+      },
+      "HEALER": {
+        "name": "HEALER",
+        "limit": 1
+      },
+      "CHAMA-SOMBRA": {
+        "name": "CHAMA-SOMBRA",
+        "limit": 1
+      },
+      "FULGURAS": {
+        "name": "FULGURAS",
+        "limit": 1
+      },
+      "BADON": {
+        "name": "BADON",
+        "limit": 1
+      },
+      "DPS": {
+        "name": "DPS",
+        "limit": 1
+      }
+    },
+    "members": {
+      "TANK": [
+        {
+          "id": "1303148557301190710",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "oandarilho00_50271",
+          "globalName": "Oandarilho00",
+          "discriminator": "0",
+          "avatar": "b462a11fabdf3b8c60bb85ca9fd30c2a",
+          "banner": null,
+          "accentColor": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1730765227390,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/4.png",
+          "hexAccentColor": null,
+          "tag": "oandarilho00_50271",
+          "avatarURL": "https://cdn.discordapp.com/avatars/1303148557301190710/b462a11fabdf3b8c60bb85ca9fd30c2a.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/1303148557301190710/b462a11fabdf3b8c60bb85ca9fd30c2a.webp",
+          "bannerURL": null,
+          "guildTagBadgeURL": null
+        }
+      ],
+      "HEALER": [
+        {
+          "id": "369125617956028417",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "raveencafe",
+          "globalName": "Renato",
+          "discriminator": "0",
+          "avatar": "3546d7052b726ad923443e2e4de7f747",
+          "banner": null,
+          "accentColor": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1508076805343,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/5.png",
+          "hexAccentColor": null,
+          "tag": "raveencafe",
+          "avatarURL": "https://cdn.discordapp.com/avatars/369125617956028417/3546d7052b726ad923443e2e4de7f747.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/369125617956028417/3546d7052b726ad923443e2e4de7f747.webp",
+          "bannerURL": null,
+          "guildTagBadgeURL": null
+        }
+      ],
+      "CHAMA-SOMBRA": [],
+      "FULGURAS": [
+        {
+          "id": "161273384829845505",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "arkangnof",
+          "globalName": "Ottavio Miguel",
+          "discriminator": "0",
+          "avatar": "7fe06e6a214e716fb4c1c36cf2559c00",
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1458520971258,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/0.png",
+          "tag": "arkangnof",
+          "avatarURL": "https://cdn.discordapp.com/avatars/161273384829845505/7fe06e6a214e716fb4c1c36cf2559c00.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/161273384829845505/7fe06e6a214e716fb4c1c36cf2559c00.webp",
+          "guildTagBadgeURL": null
+        }
+      ],
+      "BADON": [],
+      "DPS": []
+    },
+    "description": "SAINDO DE THETFORD PORTAL **ARMA 8 SET T7 EQUIVALENTE** QUEM FOR ESPECADO PODE PEGAR 1350 IP NA ARMA\n**LOOT SPLIT**",
+    "startDate": "2026-02-15T21:30:00.000Z",
+    "creatorId": "1303148557301190710"
+  },
+  "1472654232367661108": {
+    "title": "baú dourado e azul dos lisos",
+    "total": 7,
+    "roles": {
+      "TANK": {
+        "name": "TANK",
+        "limit": 1
+      },
+      "HEALER": {
+        "name": "HEALER",
+        "limit": 1
+      },
+      "CHAMA-SOMBRAS": {
+        "name": "CHAMA-SOMBRAS",
+        "limit": 1
+      },
+      "FULGURANTE": {
+        "name": "FULGURANTE",
+        "limit": 1
+      },
+      "FURABUNDA": {
+        "name": "FURABUNDA",
+        "limit": 2
+      },
+      "QUEBRA": {
+        "name": "QUEBRA",
+        "limit": 1
+      }
+    },
+    "members": {
+      "TANK": [
+        {
+          "id": "1303148557301190710",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "oandarilho00_50271",
+          "globalName": "Oandarilho00",
+          "discriminator": "0",
+          "avatar": "b462a11fabdf3b8c60bb85ca9fd30c2a",
+          "banner": null,
+          "accentColor": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1730765227390,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/4.png",
+          "hexAccentColor": null,
+          "tag": "oandarilho00_50271",
+          "avatarURL": "https://cdn.discordapp.com/avatars/1303148557301190710/b462a11fabdf3b8c60bb85ca9fd30c2a.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/1303148557301190710/b462a11fabdf3b8c60bb85ca9fd30c2a.webp",
+          "bannerURL": null,
+          "guildTagBadgeURL": null
+        }
+      ],
+      "HEALER": [
+        {
+          "id": "862455316507131924",
+          "bot": false,
+          "system": false,
+          "flags": 256,
+          "username": "_v4lknut",
+          "globalName": "ValKnuT",
+          "discriminator": "0",
+          "avatar": "ce94fa38335d45eba8de75bc26876773",
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1625695771100,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/2.png",
+          "tag": "_v4lknut",
+          "avatarURL": "https://cdn.discordapp.com/avatars/862455316507131924/ce94fa38335d45eba8de75bc26876773.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/862455316507131924/ce94fa38335d45eba8de75bc26876773.webp",
+          "guildTagBadgeURL": null
+        }
+      ],
+      "CHAMA-SOMBRAS": [],
+      "FULGURANTE": [],
+      "FURABUNDA": [],
+      "QUEBRA": []
+    },
+    "description": "build T6 equivalente aprendizagem e Spec da guilda não faremos o bob saindo de brecilian\n@everyone",
+    "startDate": "2026-02-15T18:30:00.000Z",
+    "creatorId": "1303148557301190710"
+  },
+  "1472977874565861480": {
+    "title": "**BAU DOURADO*\"",
+    "total": 7,
+    "roles": {
+      "TANK": {
+        "name": "TANK",
+        "limit": 1
+      },
+      "HEALER": {
+        "name": "HEALER",
+        "limit": 1
+      },
+      "CHAMA SOMBRA": {
+        "name": "CHAMA SOMBRA",
+        "limit": 1
+      },
+      "FULGURAS": {
+        "name": "FULGURAS",
+        "limit": 1
+      },
+      "FURA BUNDA": {
+        "name": "FURA BUNDA",
+        "limit": 2
+      },
+      "QUEBRA REINOS": {
+        "name": "QUEBRA REINOS",
+        "limit": 1
+      }
+    },
+    "members": {
+      "TANK": [
+        {
+          "id": "762038259932987413",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "gladyston.junio3866",
+          "globalName": "Shina plays",
+          "discriminator": "0",
+          "avatar": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1601754479154,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/0.png",
+          "tag": "gladyston.junio3866",
+          "avatarURL": null,
+          "displayAvatarURL": "https://cdn.discordapp.com/embed/avatars/0.png",
+          "guildTagBadgeURL": null
+        }
+      ],
+      "HEALER": [],
+      "CHAMA SOMBRA": [],
+      "FULGURAS": [
+        {
+          "id": "480025898112909342",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "tcel.santos",
+          "globalName": "ElykesTKD",
+          "discriminator": "0",
+          "avatar": "9b9a220c5c1272f3c41f5ac6bec3a178",
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1534517492560,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/4.png",
+          "tag": "tcel.santos",
+          "avatarURL": "https://cdn.discordapp.com/avatars/480025898112909342/9b9a220c5c1272f3c41f5ac6bec3a178.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/480025898112909342/9b9a220c5c1272f3c41f5ac6bec3a178.webp",
+          "guildTagBadgeURL": null
+        }
+      ],
+      "FURA BUNDA": [
+        {
+          "id": "969683344642146334",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "david_david6804",
+          "globalName": "DAVID _DAVID",
+          "discriminator": "0",
+          "avatar": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1651260925208,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/2.png",
+          "tag": "david_david6804",
+          "avatarURL": null,
+          "displayAvatarURL": "https://cdn.discordapp.com/embed/avatars/2.png",
+          "guildTagBadgeURL": null
+        }
+      ],
+      "QUEBRA REINOS": []
+    },
+    "description": "BUILD T7 <#1472655517024256020> <@&1402084847245201601>",
+    "startDate": "2026-02-16T23:00:00.000Z",
+    "creatorId": "1303148557301190710"
+  },
+  "1473427488691585080": {
+    "title": "GANK NA RED",
+    "total": 5,
+    "roles": {
+      "DPS": {
+        "name": "DPS",
+        "limit": 3
+      },
+      "TANK": {
+        "name": "TANK",
+        "limit": 2
+      }
+    },
+    "members": {
+      "DPS": [
+        {
+          "id": "716803663020032061",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "zero7182",
+          "globalName": "ZERO222",
+          "discriminator": "0",
+          "avatar": "5e829a4424e839990b60eba7112664e1",
+          "banner": null,
+          "accentColor": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1590969710832,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/0.png",
+          "hexAccentColor": null,
+          "tag": "zero7182",
+          "avatarURL": "https://cdn.discordapp.com/avatars/716803663020032061/5e829a4424e839990b60eba7112664e1.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/716803663020032061/5e829a4424e839990b60eba7112664e1.webp",
+          "bannerURL": null,
+          "guildTagBadgeURL": null
+        },
+        {
+          "id": "969683344642146334",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "david_david6804",
+          "globalName": "DAVID _DAVID",
+          "discriminator": "0",
+          "avatar": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1651260925208,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/2.png",
+          "tag": "david_david6804",
+          "avatarURL": null,
+          "displayAvatarURL": "https://cdn.discordapp.com/embed/avatars/2.png",
+          "guildTagBadgeURL": null
+        }
+      ],
+      "TANK": [
+        {
+          "id": "219093992027979778",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "shinayder.",
+          "globalName": "Shinayder",
+          "discriminator": "0",
+          "avatar": "a26869df7561c2a75e22915460b63bf5",
+          "banner": null,
+          "accentColor": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1472306478269,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/5.png",
+          "hexAccentColor": null,
+          "tag": "shinayder.",
+          "avatarURL": "https://cdn.discordapp.com/avatars/219093992027979778/a26869df7561c2a75e22915460b63bf5.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/219093992027979778/a26869df7561c2a75e22915460b63bf5.webp",
+          "bannerURL": null,
+          "guildTagBadgeURL": null
+        },
+        {
+          "id": "1292542013862056070",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "joabbenos",
+          "globalName": "Sheykx",
+          "discriminator": "0",
+          "avatar": "cf381680b8f021169f172d31decd80e4",
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1728236430374,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/2.png",
+          "tag": "joabbenos",
+          "avatarURL": "https://cdn.discordapp.com/avatars/1292542013862056070/cf381680b8f021169f172d31decd80e4.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/1292542013862056070/cf381680b8f021169f172d31decd80e4.webp",
+          "guildTagBadgeURL": null
+        }
+      ]
+    },
+    "description": "Saindo de LYN \nTANK E STOP \n4.3 Equivalente.",
+    "startDate": "2026-02-17T23:00:00.000Z",
+    "creatorId": "219093992027979778"
+  },
+  "1473701667882139740": {
+    "title": "**DG Fixa**",
+    "total": 5,
+    "roles": {
+      "TANK": {
+        "name": "TANK",
+        "limit": 1
+      },
+      "HEALER": {
+        "name": "HEALER",
+        "limit": 1
+      },
+      "FULGURANTE": {
+        "name": "FULGURANTE",
+        "limit": 1
+      },
+      "CHAMA-SOMBRA": {
+        "name": "CHAMA-SOMBRA",
+        "limit": 1
+      },
+      "PRISMA": {
+        "name": "PRISMA",
+        "limit": 1
+      }
+    },
+    "members": {
+      "TANK": [
+        {
+          "id": "369125617956028417",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "raveencafe",
+          "globalName": "Renato",
+          "discriminator": "0",
+          "avatar": "3546d7052b726ad923443e2e4de7f747",
+          "banner": null,
+          "accentColor": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1508076805343,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/5.png",
+          "hexAccentColor": null,
+          "tag": "raveencafe",
+          "avatarURL": "https://cdn.discordapp.com/avatars/369125617956028417/3546d7052b726ad923443e2e4de7f747.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/369125617956028417/3546d7052b726ad923443e2e4de7f747.webp",
+          "bannerURL": null,
+          "guildTagBadgeURL": null
+        }
+      ],
+      "HEALER": [],
+      "FULGURANTE": [],
+      "CHAMA-SOMBRA": [],
+      "PRISMA": [
+        {
+          "id": "1292542013862056070",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "joabbenos",
+          "globalName": "Sheykx",
+          "discriminator": "0",
+          "avatar": "cf381680b8f021169f172d31decd80e4",
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1728236430374,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/2.png",
+          "tag": "joabbenos",
+          "avatarURL": "https://cdn.discordapp.com/avatars/1292542013862056070/cf381680b8f021169f172d31decd80e4.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/1292542013862056070/cf381680b8f021169f172d31decd80e4.webp",
+          "guildTagBadgeURL": null
+        }
+      ]
+    },
+    "description": "Saindo de Lymhurst, armas 8.0 (equivalente) set 7.0 (equivalente)",
+    "startDate": "2026-02-18T23:00:00.000Z",
+    "creatorId": "369125617956028417"
+  },
+  "1473853295683702977": {
+    "title": "escola HCE",
+    "total": 4,
+    "roles": {
+      "DPS": {
+        "name": "DPS",
+        "limit": 2
+      },
+      "HEALER": {
+        "name": "HEALER",
+        "limit": 1
+      },
+      "CHAMA SOMBRA": {
+        "name": "CHAMA SOMBRA",
+        "limit": 1
+      }
+    },
+    "members": {
+      "DPS": [],
+      "HEALER": [
+        {
+          "id": "300778176240549898",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "xmalvadezax",
+          "globalName": "Malvadeza",
+          "discriminator": "0",
+          "avatar": "ae2ae72a25ea55b4422a0670a315b1b6",
+          "avatarDecoration": null,
+          "avatarDecorationData": {
+            "asset": "a_f824f7f3d04732ce5e2ff0f3f05d1937",
+            "skuId": "1427463138634109027"
+          },
+          "collectibles": {
+            "nameplate": {
+              "skuId": "1427463138646954035",
+              "asset": "nameplates/orb/infinite_swirl/",
+              "label": "COLLECTIBLES_ORB_INFINITE_SWIRL_NP_A11Y",
+              "palette": "violet"
+            }
+          },
+          "primaryGuild": {
+            "identityGuildId": null,
+            "identityEnabled": false,
+            "tag": null,
+            "badge": null
+          },
+          "createdTimestamp": 1491781505404,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/4.png",
+          "tag": "xmalvadezax",
+          "avatarURL": "https://cdn.discordapp.com/avatars/300778176240549898/ae2ae72a25ea55b4422a0670a315b1b6.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/300778176240549898/ae2ae72a25ea55b4422a0670a315b1b6.webp",
+          "guildTagBadgeURL": null
+        }
+      ],
+      "CHAMA SOMBRA": []
+    },
+    "description": "Sem descrição",
+    "startDate": "2026-02-19T22:00:00.000Z",
+    "creatorId": "716803663020032061"
+  },
+  "1474071718757666997": {
+    "title": "briga de bar",
+    "total": 20,
+    "roles": {
+      "livre": {
+        "name": "livre",
+        "limit": 20
+      }
+    },
+    "members": {
+      "livre": [
+        {
+          "id": "1303148557301190710",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "oandarilho00_50271",
+          "globalName": "Oandarilho00",
+          "discriminator": "0",
+          "avatar": "b462a11fabdf3b8c60bb85ca9fd30c2a",
+          "banner": null,
+          "accentColor": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1730765227390,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/4.png",
+          "hexAccentColor": null,
+          "tag": "oandarilho00_50271",
+          "avatarURL": "https://cdn.discordapp.com/avatars/1303148557301190710/b462a11fabdf3b8c60bb85ca9fd30c2a.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/1303148557301190710/b462a11fabdf3b8c60bb85ca9fd30c2a.webp",
+          "bannerURL": null,
+          "guildTagBadgeURL": null
+        },
+        {
+          "id": "1292542013862056070",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "joabbenos",
+          "globalName": "Sheykx",
+          "discriminator": "0",
+          "avatar": "cf381680b8f021169f172d31decd80e4",
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1728236430374,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/2.png",
+          "tag": "joabbenos",
+          "avatarURL": "https://cdn.discordapp.com/avatars/1292542013862056070/cf381680b8f021169f172d31decd80e4.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/1292542013862056070/cf381680b8f021169f172d31decd80e4.webp",
+          "guildTagBadgeURL": null
+        }
+      ]
+    },
+    "description": "4.1\n@everyone",
+    "startDate": "2026-02-19T23:00:00.000Z",
+    "creatorId": "1303148557301190710"
+  },
+  "1475258942644027514": {
+    "title": "ESCOLA HCE",
+    "total": 4,
+    "roles": {
+      "DPS": {
+        "name": "DPS",
+        "limit": 3
+      },
+      "HEALER": {
+        "name": "HEALER",
+        "limit": 1
+      },
+      "CHAMA SOMBRA": {
+        "name": "CHAMA SOMBRA",
+        "limit": 1
+      }
+    },
+    "members": {
+      "DPS": [],
+      "HEALER": [
+        {
+          "id": "300778176240549898",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "xmalvadezax",
+          "globalName": "Malvadeza",
+          "discriminator": "0",
+          "avatar": "ae2ae72a25ea55b4422a0670a315b1b6",
+          "avatarDecoration": null,
+          "avatarDecorationData": {
+            "asset": "a_f824f7f3d04732ce5e2ff0f3f05d1937",
+            "skuId": "1427463138634109027"
+          },
+          "collectibles": {
+            "nameplate": {
+              "skuId": "1427463138646954035",
+              "asset": "nameplates/orb/infinite_swirl/",
+              "label": "COLLECTIBLES_ORB_INFINITE_SWIRL_NP_A11Y",
+              "palette": "violet"
+            }
+          },
+          "primaryGuild": {
+            "identityGuildId": null,
+            "identityEnabled": false,
+            "tag": null,
+            "badge": null
+          },
+          "createdTimestamp": 1491781505404,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/4.png",
+          "tag": "xmalvadezax",
+          "avatarURL": "https://cdn.discordapp.com/avatars/300778176240549898/ae2ae72a25ea55b4422a0670a315b1b6.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/300778176240549898/ae2ae72a25ea55b4422a0670a315b1b6.webp",
+          "guildTagBadgeURL": null
+        }
+      ],
+      "CHAMA SOMBRA": []
+    },
+    "description": "Sem descrição",
+    "startDate": "2026-02-23T22:00:00.000Z",
+    "creatorId": "716803663020032061"
+  },
+  "1475313004236243038": {
+    "title": "DG  7.1",
+    "total": 5,
+    "roles": {
+      "TANK": {
+        "name": "TANK",
+        "limit": 1
+      },
+      "HEALER": {
+        "name": "HEALER",
+        "limit": 1
+      },
+      "FULGURANTE": {
+        "name": "FULGURANTE",
+        "limit": 1
+      },
+      "CHAMA-SOMBRA": {
+        "name": "CHAMA-SOMBRA",
+        "limit": 1
+      },
+      "PRISMA": {
+        "name": "PRISMA",
+        "limit": 1
+      }
+    },
+    "members": {
+      "TANK": [
+        {
+          "id": "369125617956028417",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "raveencafe",
+          "globalName": "Renato",
+          "discriminator": "0",
+          "avatar": "3546d7052b726ad923443e2e4de7f747",
+          "banner": null,
+          "accentColor": null,
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": null,
+          "createdTimestamp": 1508076805343,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/5.png",
+          "hexAccentColor": null,
+          "tag": "raveencafe",
+          "avatarURL": "https://cdn.discordapp.com/avatars/369125617956028417/3546d7052b726ad923443e2e4de7f747.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/369125617956028417/3546d7052b726ad923443e2e4de7f747.webp",
+          "bannerURL": null,
+          "guildTagBadgeURL": null
+        }
+      ],
+      "HEALER": [],
+      "FULGURANTE": [],
+      "CHAMA-SOMBRA": [
+        {
+          "id": "269579916331319306",
+          "bot": false,
+          "system": false,
+          "flags": 0,
+          "username": "cadukkan",
+          "globalName": "✗Khan✗",
+          "discriminator": "0",
+          "avatar": "0a3ae7f8a725a8c77537ff1f6ff5a38f",
+          "avatarDecoration": null,
+          "avatarDecorationData": null,
+          "collectibles": null,
+          "primaryGuild": {
+            "identityGuildId": "771272679549304832",
+            "identityEnabled": true,
+            "tag": "KAGE",
+            "badge": "6082c2553b03b47ccaea5203567df3cf"
+          },
+          "createdTimestamp": 1484343260606,
+          "defaultAvatarURL": "https://cdn.discordapp.com/embed/avatars/2.png",
+          "tag": "cadukkan",
+          "avatarURL": "https://cdn.discordapp.com/avatars/269579916331319306/0a3ae7f8a725a8c77537ff1f6ff5a38f.webp",
+          "displayAvatarURL": "https://cdn.discordapp.com/avatars/269579916331319306/0a3ae7f8a725a8c77537ff1f6ff5a38f.webp",
+          "guildTagBadgeURL": "https://cdn.discordapp.com/guild-tag-badges/771272679549304832/6082c2553b03b47ccaea5203567df3cf.webp"
+        }
+      ],
+      "PRISMA": []
+    },
+    "description": "Saindo de Thetford Portal , Armas 7.0 (equivalente) Set 6.0 (equivalente)",
+    "startDate": "2025-02-23T23:00:00.000Z",
+    "creatorId": "369125617956028417"
+  }
+}
