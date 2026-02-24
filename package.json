@@ -1,19 +1,16 @@
 {
   "name": "albion-bot",
   "version": "1.0.0",
-  "description": "Bot Discord Albion com musica e comandos personalizados",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
-  },
-  "engines": {
-    "node": "18.x"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
     "discord-player": "^6.7.1",
     "@discord-player/extractor": "^4.4.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "play-dl": "^1.9.6"
   }
 }
-"play-dl": "^1.9.6"
