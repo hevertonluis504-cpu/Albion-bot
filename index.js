@@ -200,7 +200,7 @@ client.once(Events.ClientReady, async () => {
 client.on("interactionCreate", async i => {
   if (i.isChatInputCommand() && i.commandName === "criar") {
     const roles = parseRoles(i.options.getString("classes"));
-    if (!Object.keys(roles).length) return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", flags: 64 });
+    if (!Object.keys(roles).length) return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", ephemeral: true });
 
     const members = {};
     for (const r in roles) members[r] = [];
@@ -229,8 +229,11 @@ client.on("interactionCreate", async i => {
     if (!group) return;
 
     const user = i.user;
-    const channel = await client.channels.fetch(i.channelId);
-    const msg = await channel.messages.fetch(msgId);
+    const channel = await client.channels.fetch(i.channelId).catch(() => null);
+    if (!channel) return;
+
+    const msg = await channel.messages.fetch(msgId).catch(() => null);
+    if (!msg) return;
 
     // Sair
     if (action === "leave") {
@@ -246,13 +249,13 @@ client.on("interactionCreate", async i => {
       if (mentions.length) await channel.send(mentions.join(" "));
     }
 
-    // Editar via DM
+    // Editar via DM (VERSÃO SEGURA)
     if (action === "edit") {
       if (i.user.id !== group.creatorId) return;
-      await i.reply({ content: "📩 Verifique suas DMs para editar o grupo.", flags: 64 });
+      await i.followUp({ content: "📩 Verifique suas DMs para editar o grupo.", ephemeral: true });
 
       const dm = await i.user.createDM().catch(() => null);
-      if (!dm) return i.followUp({ content: "❌ Não consegui enviar DM. Ative suas DMs.", flags: 64 });
+      if (!dm) return i.followUp({ content: "❌ Não consegui enviar DM. Ative suas DMs.", ephemeral: true });
 
       const questions = [
         { key: "title", text: "Qual é o **novo título** do grupo?" },
@@ -266,7 +269,7 @@ client.on("interactionCreate", async i => {
       let step = 0;
       const sendNext = async () => {
         if (step >= questions.length) return finalize();
-        await dm.send(questions[step].text);
+        await dm.send(questions[step].text).catch(() => finalize());
       };
 
       const collector = dm.createMessageCollector({
@@ -278,9 +281,13 @@ client.on("interactionCreate", async i => {
         const answer = msg.content.trim();
         const q = questions[step];
 
-        if (q.key === "total") group.total = parseInt(answer) || group.total;
-        else if (q.key === "classes") group.roles = parseRoles(answer);
-        else group[q.key] = answer;
+        try {
+          if (q.key === "total") group.total = parseInt(answer) || group.total;
+          else if (q.key === "classes") group.roles = parseRoles(answer);
+          else group[q.key] = answer;
+        } catch (err) {
+          console.error("Erro ao processar resposta:", err);
+        }
 
         step++;
         sendNext();
@@ -288,19 +295,25 @@ client.on("interactionCreate", async i => {
 
       const finalize = async () => {
         collector.stop("finalizado");
-        group.startDate = parseDateTime(group.date, group.time);
 
-        for (const key in group.roles) {
-          if (!group.members[key]) group.members[key] = [];
-          if (group.members[key].length > group.roles[key].limit)
-            group.members[key] = group.members[key].slice(0, group.roles[key].limit);
+        try {
+          group.startDate = parseDateTime(group.date, group.time);
+
+          for (const key in group.roles) {
+            if (!group.members[key]) group.members[key] = [];
+            if (group.members[key].length > group.roles[key].limit)
+              group.members[key] = group.members[key].slice(0, group.roles[key].limit);
+          }
+
+          const msgEdit = await channel.messages.fetch(msgId).catch(() => null);
+          if (msgEdit) await msgEdit.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+
+          await saveGroups();
+          await dm.send("✅ Grupo atualizado com sucesso!");
+        } catch (err) {
+          console.error("Erro ao finalizar edição:", err);
+          await dm.send("❌ Ocorreu um erro ao atualizar o grupo.");
         }
-
-        const msgEdit = await channel.messages.fetch(msgId).catch(() => null);
-        if (msgEdit) await msgEdit.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-
-        await saveGroups();
-        await dm.send("✅ Grupo atualizado com sucesso!");
       };
 
       sendNext();
