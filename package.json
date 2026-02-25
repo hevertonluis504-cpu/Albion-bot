@@ -1,13 +1,15 @@
 {
-  "name": "avalon-bot-v4-emojis",
-  "version": "4.0.0",
+  "name": "albion-professional-bot",
+  "version": "1.0.0",
+  "description": "Bot profissional para grupos Albion",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node index.js",
-    "deploy": "node deploy-commands.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "fs-extra": "^11.2.0"
   }
 }
