@@ -14,7 +14,14 @@ const {
   Events
 } = require("discord.js");
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
+
 const groups = new Map();
 
 /* ======================= SALVAR / CARREGAR ======================= */
@@ -74,11 +81,16 @@ function formatDate(d) {
 }
 
 function formatTime(d) {
-  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+  return d.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo"
+  });
 }
 
 /* ======================= EMBED ======================= */
 function buildEmbed(group) {
+  const now = new Date();
   const embed = new EmbedBuilder()
     .setTitle(`⚔️ ${group.title}`)
     .setColor(0x5865F2)
@@ -89,6 +101,16 @@ function buildEmbed(group) {
       `👥 Total: ${group.total}`
     );
 
+  // Tempo restante
+  const diff = group.startDate - now;
+  if (diff > 0) {
+    const hours = Math.floor(diff / 1000 / 60 / 60);
+    const minutes = Math.floor((diff / 1000 / 60) % 60);
+    embed.addFields({ name: "⏳ Começa em", value: `${hours}h ${minutes}m`, inline: true });
+  } else {
+    embed.addFields({ name: "✅ Status", value: "Evento iniciado!", inline: true });
+  }
+
   for (const key in group.roles) {
     const role = group.roles[key];
     const members = group.members[key]?.map(u => `<@${u.id}>`).join("\n") || "—";
@@ -98,6 +120,7 @@ function buildEmbed(group) {
       inline: true
     });
   }
+
   return embed;
 }
 
@@ -105,6 +128,7 @@ function buildEmbed(group) {
 function buildButtons(group, msgId) {
   const rows = [];
   const allButtons = [];
+  const eventStarted = group.startDate <= new Date();
 
   for (const key in group.roles) {
     allButtons.push(
@@ -112,6 +136,7 @@ function buildButtons(group, msgId) {
         .setCustomId(`join_${msgId}_${key}`)
         .setLabel(`${getEmoji(group.roles[key].name)} ${group.roles[key].name}`)
         .setStyle(ButtonStyle.Primary)
+        .setDisabled(eventStarted)
     );
   }
 
@@ -119,15 +144,18 @@ function buildButtons(group, msgId) {
     new ButtonBuilder()
       .setCustomId(`leave_${msgId}`)
       .setLabel("🚪 Sair")
-      .setStyle(ButtonStyle.Danger),
+      .setStyle(ButtonStyle.Danger)
+      .setDisabled(eventStarted),
     new ButtonBuilder()
       .setCustomId(`ping_${msgId}`)
       .setLabel("🔔 Ping")
-      .setStyle(ButtonStyle.Secondary),
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(eventStarted),
     new ButtonBuilder()
       .setCustomId(`edit_${msgId}`)
       .setLabel("📝 Editar")
       .setStyle(ButtonStyle.Secondary)
+      .setDisabled(eventStarted)
   );
 
   let currentRow = new ActionRowBuilder();
@@ -187,13 +215,12 @@ client.on("interactionCreate", async i => {
       members,
       description: i.options.getString("descricao") || "Sem descrição",
       startDate: parseDateTime(i.options.getString("data"), i.options.getString("horario")),
-      creatorId: i.user.id
+      creatorId: i.user.id,
+      channelId: i.channelId
     };
 
     const msg = await i.reply({ embeds: [buildEmbed(group)], components: buildButtons(group, "temp"), fetchReply: true });
     groups.set(msg.id, group);
-
-    // Atualiza os botões com ID real da mensagem
     await msg.edit({ components: buildButtons(group, msg.id) });
     await saveGroups();
   }
@@ -234,7 +261,7 @@ client.on("interactionCreate", async i => {
 
   // ===== BOTÕES =====
   if (i.isButton()) {
-    await i.deferUpdate(); // Evita "Evento expirado"
+    await i.deferUpdate(); // evita evento expirado
     const [action, msgId, roleName] = i.customId.split("_");
     const group = groups.get(msgId);
     if (!group) return;
@@ -257,7 +284,6 @@ client.on("interactionCreate", async i => {
 
     if (action === "edit") {
       if (i.user.id !== group.creatorId) return;
-
       const dm = await i.user.createDM();
       await dm.send("Vamos editar seu grupo! Responda cada pergunta abaixo:");
 
@@ -270,30 +296,35 @@ client.on("interactionCreate", async i => {
         { key: "classes", text: "Novas classes (Ex: 1 Tank, 2 Healer, 3 DPS)?" }
       ];
 
-      const collector = dm.createMessageCollector({ filter: m => m.author.id === i.user.id, time: 300000 });
       let step = 0;
+      const dmListener = async msg => {
+        if (msg.author.id !== i.user.id) return;
 
-      collector.on("collect", async msg => {
         group[questions[step].key] = msg.content;
         step++;
+
         if (step < questions.length) {
           await dm.send(questions[step].text);
         } else {
-          collector.stop();
+          client.off("messageCreate", dmListener);
           group.startDate = parseDateTime(group.date, group.time);
           group.total = parseInt(group.total);
           group.roles = parseRoles(group.classes);
 
           for (const key in group.roles) {
             if (!group.members[key]) group.members[key] = [];
-            if (group.members[key].length > group.roles[key].limit) group.members[key] = group.members[key].slice(0, group.roles[key].limit);
+            if (group.members[key].length > group.roles[key].limit)
+              group.members[key] = group.members[key].slice(0, group.roles[key].limit);
           }
 
           await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
           await saveGroups();
           await dm.send("✅ Grupo atualizado com sucesso!");
         }
-      });
+      };
+
+      client.on("messageCreate", dmListener);
+      await dm.send(questions[step].text); // primeira pergunta
     }
 
     if (action === "join") {
@@ -304,6 +335,18 @@ client.on("interactionCreate", async i => {
     }
   }
 });
+
+/* ======================= ATUALIZAÇÃO PERIÓDICA ======================= */
+setInterval(async () => {
+  const now = new Date();
+  for (const [msgId, group] of groups.entries()) {
+    const channel = await client.channels.fetch(group.channelId).catch(() => null);
+    if (!channel) continue;
+    const msg = await channel.messages.fetch(msgId).catch(() => null);
+    if (!msg) continue;
+    await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+  }
+}, 60_000);
 
 /* ======================= LOGIN ======================= */
 client.login(process.env.DISCORD_TOKEN);
