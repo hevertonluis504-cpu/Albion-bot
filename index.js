@@ -249,7 +249,7 @@ client.on("interactionCreate", async i => {
       if (mentions.length) await channel.send(mentions.join(" "));
     }
 
-    // Editar via DM (funcional)
+    // Editar via DM
     if (action === "edit") {
       if (i.user.id !== group.creatorId) return;
       await i.followUp({ content: "📩 Verifique suas DMs para editar o grupo.", ephemeral: true });
@@ -267,7 +267,6 @@ client.on("interactionCreate", async i => {
       ];
 
       let step = 0;
-
       const askQuestion = async () => {
         if (step >= questions.length) return finalize();
         await dm.send(questions[step].text);
