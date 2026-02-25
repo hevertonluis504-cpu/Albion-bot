@@ -129,6 +129,7 @@ function buildButtons(group, msgId) {
   const allButtons = [];
   const eventStarted = group.startDate <= new Date();
 
+  // Botões de roles
   for (const key in group.roles) {
     allButtons.push(
       new ButtonBuilder()
@@ -139,6 +140,7 @@ function buildButtons(group, msgId) {
     );
   }
 
+  // Outros botões (sem editar)
   allButtons.push(
     new ButtonBuilder()
       .setCustomId(`leave_${msgId}`)
@@ -148,11 +150,6 @@ function buildButtons(group, msgId) {
     new ButtonBuilder()
       .setCustomId(`ping_${msgId}`)
       .setLabel("🔔 Ping")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(eventStarted),
-    new ButtonBuilder()
-      .setCustomId(`edit_${msgId}`)
-      .setLabel("📝 Editar")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(eventStarted)
   );
@@ -231,7 +228,6 @@ client.on("interactionCreate", async i => {
     const user = i.user;
     const channel = await client.channels.fetch(i.channelId).catch(() => null);
     if (!channel) return;
-
     const msg = await channel.messages.fetch(msgId).catch(() => null);
     if (!msg) return;
 
@@ -247,66 +243,6 @@ client.on("interactionCreate", async i => {
       const mentions = [];
       for (const r in group.members) group.members[r].forEach(u => mentions.push(`<@${u.id}>`));
       if (mentions.length) await channel.send(mentions.join(" "));
-    }
-
-    // Editar via DM
-    if (action === "edit") {
-      if (i.user.id !== group.creatorId) return;
-      await i.followUp({ content: "📩 Verifique suas DMs para editar o grupo.", ephemeral: true });
-
-      const dm = await i.user.createDM().catch(() => null);
-      if (!dm) return i.followUp({ content: "❌ Não consegui enviar DM. Ative suas DMs.", ephemeral: true });
-
-      const questions = [
-        { key: "title", text: "Qual é o **novo título** do grupo?" },
-        { key: "description", text: "Qual é a **nova descrição** do grupo?" },
-        { key: "date", text: "Qual é a **nova data** do grupo (DD/MM/AAAA)?" },
-        { key: "time", text: "Qual é o **novo horário** do grupo (HH:MM UTC-3)?" },
-        { key: "total", text: "Qual é o **novo total de jogadores**?" },
-        { key: "classes", text: "Quais são as **novas classes** (Ex: 1 Tank, 2 Healer, 3 DPS)?" }
-      ];
-
-      let step = 0;
-      const askQuestion = async () => {
-        if (step >= questions.length) return finalize();
-        await dm.send(questions[step].text);
-      };
-
-      const collector = dm.createMessageCollector({
-        filter: m => m.author.id === i.user.id,
-        time: 300_000
-      });
-
-      collector.on("collect", async msg => {
-        const answer = msg.content.trim();
-        const q = questions[step];
-
-        if (q.key === "total") group.total = parseInt(answer) || group.total;
-        else if (q.key === "classes") group.roles = parseRoles(answer);
-        else group[q.key] = answer;
-
-        step++;
-        await saveGroups();
-        askQuestion();
-      });
-
-      const finalize = async () => {
-        collector.stop("finalizado");
-        group.startDate = parseDateTime(group.date, group.time);
-
-        for (const key in group.roles) {
-          if (!group.members[key]) group.members[key] = [];
-          if (group.members[key].length > group.roles[key].limit)
-            group.members[key] = group.members[key].slice(0, group.roles[key].limit);
-        }
-
-        const msgEdit = await channel.messages.fetch(msgId).catch(() => null);
-        if (msgEdit) await msgEdit.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-        await saveGroups();
-        await dm.send("✅ Grupo atualizado com sucesso!");
-      };
-
-      askQuestion();
     }
 
     // Entrar
