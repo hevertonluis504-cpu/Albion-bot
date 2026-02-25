@@ -15,7 +15,11 @@ const {
 } = require("discord.js");
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
 const groups = new Map();
@@ -264,56 +268,46 @@ client.on("interactionCreate", async i => {
 
       let step = 0;
 
-      const sendNext = async () => {
+      const askQuestion = async () => {
         if (step >= questions.length) return finalize();
-        await dm.send(questions[step].text).catch(() => finalize());
+        await dm.send(questions[step].text);
       };
 
       const collector = dm.createMessageCollector({
-        filter: msg => msg.author.id === i.user.id,
+        filter: m => m.author.id === i.user.id,
         time: 300_000
       });
 
-      collector.on("collect", msg => {
+      collector.on("collect", async msg => {
         const answer = msg.content.trim();
         const q = questions[step];
 
-        try {
-          if (q.key === "total") group.total = parseInt(answer) || group.total;
-          else if (q.key === "classes") group.roles = parseRoles(answer);
-          else group[q.key] = answer;
-        } catch (err) {
-          console.error("Erro ao processar resposta:", err);
-        }
+        if (q.key === "total") group.total = parseInt(answer) || group.total;
+        else if (q.key === "classes") group.roles = parseRoles(answer);
+        else group[q.key] = answer;
 
         step++;
-        sendNext();
+        await saveGroups();
+        askQuestion();
       });
 
       const finalize = async () => {
         collector.stop("finalizado");
+        group.startDate = parseDateTime(group.date, group.time);
 
-        try {
-          group.startDate = parseDateTime(group.date, group.time);
-
-          for (const key in group.roles) {
-            if (!group.members[key]) group.members[key] = [];
-            if (group.members[key].length > group.roles[key].limit)
-              group.members[key] = group.members[key].slice(0, group.roles[key].limit);
-          }
-
-          const msgEdit = await channel.messages.fetch(msgId).catch(() => null);
-          if (msgEdit) await msgEdit.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-
-          await saveGroups();
-          await dm.send("✅ Grupo atualizado com sucesso!");
-        } catch (err) {
-          console.error("Erro ao finalizar edição:", err);
-          await dm.send("❌ Ocorreu um erro ao atualizar o grupo.");
+        for (const key in group.roles) {
+          if (!group.members[key]) group.members[key] = [];
+          if (group.members[key].length > group.roles[key].limit)
+            group.members[key] = group.members[key].slice(0, group.roles[key].limit);
         }
+
+        const msgEdit = await channel.messages.fetch(msgId).catch(() => null);
+        if (msgEdit) await msgEdit.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+        await saveGroups();
+        await dm.send("✅ Grupo atualizado com sucesso!");
       };
 
-      sendNext();
+      askQuestion();
     }
 
     // Entrar
