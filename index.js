@@ -192,26 +192,31 @@ client.once(Events.ClientReady, async () => {
       .addStringOption(o=>o.setName("descricao").setDescription("Descrição")),
 
     new SlashCommandBuilder()
-  .setName("divisao")
-  .setDescription("Calcular divisão de loot")
-  .addIntegerOption(o =>
-    o.setName("loot")
-      .setDescription("Valor total do loot")
-      .setRequired(true)
-  )
-  .addIntegerOption(o =>
-    o.setName("jogadores")
-      .setDescription("Quantidade de jogadores")
-      .setRequired(false)
-  )
-  .addStringOption(o =>
-    o.setName("mencoes")
-      .setDescription("Mencione os jogadores (@user1 @user2)")
-      .setRequired(false)
-  )
+      .setName("divisao")
+      .setDescription("Calcular divisão de loot")
+      .addIntegerOption(o =>
+        o.setName("loot")
+          .setDescription("Valor total do loot")
+          .setRequired(true)
+      )
+      .addIntegerOption(o =>
+        o.setName("jogadores")
+          .setDescription("Quantidade de jogadores")
+          .setRequired(false)
+      )
+      .addStringOption(o =>
+        o.setName("mencoes")
+          .setDescription("Mencione os jogadores (@user1 @user2)")
+          .setRequired(false)
+      )
+  ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+
+  await rest.put(
+    Routes.applicationCommands(client.user.id),
+    { body: commands }
+  );
 
   console.log("Comandos registrados.");
 });
