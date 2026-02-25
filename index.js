@@ -140,7 +140,7 @@ function buildButtons(group, msgId) {
     );
   }
 
-  // Outros botões (sem editar)
+  // Botões leave e ping
   allButtons.push(
     new ButtonBuilder()
       .setCustomId(`leave_${msgId}`)
@@ -208,6 +208,7 @@ client.once(Events.ClientReady, async () => {
 /* ======================= INTERAÇÕES ======================= */
 client.on("interactionCreate", async i => {
   if (i.isChatInputCommand()) {
+
     // Criar grupo
     if (i.commandName === "criar") {
       const roles = parseRoles(i.options.getString("classes"));
@@ -264,10 +265,11 @@ client.on("interactionCreate", async i => {
       return i.reply({ embeds: [embed] });
     }
 
-    // Editar grupo
+    // Editar grupo simplificado
     if (i.commandName === "editar") {
       const msgId = i.options.getString("msgid");
       const group = groups.get(msgId);
+
       if (!group) return i.reply({ content: "❌ Grupo não encontrado.", ephemeral: true });
       if (i.user.id !== group.creatorId) return i.reply({ content: "❌ Apenas o criador pode editar.", ephemeral: true });
 
@@ -282,23 +284,23 @@ client.on("interactionCreate", async i => {
       if (descricao) group.description = descricao;
       if (total) group.total = total;
       if (data && horario) group.startDate = parseDateTime(data, horario);
-      if (classes) group.roles = parseRoles(classes);
-
-      for (const key in group.roles) {
-        if (!group.members[key]) group.members[key] = [];
-        if (group.members[key].length > group.roles[key].limit)
-          group.members[key] = group.members[key].slice(0, group.roles[key].limit);
+      if (classes) {
+        group.roles = parseRoles(classes);
+        for (const key in group.roles) {
+          if (!group.members[key]) group.members[key] = [];
+          if (group.members[key].length > group.roles[key].limit)
+            group.members[key] = group.members[key].slice(0, group.roles[key].limit);
+        }
       }
 
       const channel = await client.channels.fetch(group.channelId).catch(() => null);
       if (!channel) return i.reply({ content: "❌ Canal do grupo não encontrado.", ephemeral: true });
-
       const msg = await channel.messages.fetch(msgId).catch(() => null);
       if (!msg) return i.reply({ content: "❌ Mensagem do grupo não encontrada.", ephemeral: true });
 
       await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
       await saveGroups();
-      await i.reply({ content: "✅ Grupo atualizado com sucesso!", ephemeral: true });
+      return i.reply({ content: "✅ Grupo atualizado com sucesso!", ephemeral: true });
     }
   }
 
