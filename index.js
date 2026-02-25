@@ -124,11 +124,11 @@ function buildButtons(group, msgId) {
       .setLabel("🚪 Sair")
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
-      .setCustomId(`ping_all_${msgId}`)
+      .setCustomId(`ping_${msgId}`)
       .setLabel("🔔 Ping")
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId(`edit_group_${msgId}`)
+      .setCustomId(`edit_${msgId}`)
       .setLabel("📝 Editar")
       .setStyle(ButtonStyle.Secondary)
   );
@@ -237,32 +237,29 @@ client.on("interactionCreate", async i => {
 
   // ===== BOTÕES =====
   if (i.isButton()) {
+    await i.deferUpdate(); // Evita "Evento expirado"
     const [action, msgId, roleName] = i.customId.split("_");
     const group = groups.get(msgId);
-    if (!group) return i.reply({ content: "Evento expirado.", flags: 64 });
-    const user = i.user;
+    if (!group) return;
 
+    const user = i.user;
     const channel = await client.channels.fetch(i.channelId);
     const msg = await channel.messages.fetch(msgId);
 
     if (action === "leave") {
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
       await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-      await i.reply({ content: "Você saiu do grupo.", flags: 64 });
       await saveGroups();
-      return;
     }
 
     if (action === "ping") {
       const mentions = [];
       for (const r in group.members) group.members[r].forEach(u => mentions.push(`<@${u.id}>`));
-      if (!mentions.length) return i.reply({ content: "Ninguém no grupo.", flags: 64 });
-      return i.reply({ content: mentions.join(" "), flags: 64 });
+      if (mentions.length) await channel.send(mentions.join(" "));
     }
 
     if (action === "edit") {
-      if (i.user.id !== group.creatorId) return i.reply({ content: "❌ Apenas o criador pode editar este grupo.", flags: 64 });
-
+      if (i.user.id !== group.creatorId) return;
       const modal = new ModalBuilder().setCustomId(`editGroup_${msgId}`).setTitle("Editar Grupo");
 
       const titleInput = new TextInputBuilder().setCustomId("newTitle").setLabel("Título").setStyle(TextInputStyle.Short).setValue(group.title).setRequired(true);
@@ -284,10 +281,8 @@ client.on("interactionCreate", async i => {
 
     if (action === "join") {
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
-      if (group.members[roleName].length >= group.roles[roleName].limit) return i.reply({ content: "Classe cheia.", flags: 64 });
-      group.members[roleName].push({ id: user.id, username: user.tag });
+      if (group.members[roleName].length < group.roles[roleName].limit) group.members[roleName].push({ id: user.id, username: user.tag });
       await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-      await i.reply({ content: "Você entrou no grupo.", flags: 64 });
       await saveGroups();
     }
   }
@@ -296,7 +291,7 @@ client.on("interactionCreate", async i => {
   if (i.isModalSubmit() && i.customId.startsWith("editGroup_")) {
     const msgId = i.customId.split("_")[1];
     const group = groups.get(msgId);
-    if (!group) return i.reply({ content: "Grupo não encontrado.", flags: 64 });
+    if (!group) return;
 
     group.title = i.fields.getTextInputValue("newTitle");
     group.description = i.fields.getTextInputValue("newDesc");
@@ -312,7 +307,6 @@ client.on("interactionCreate", async i => {
     const channel = await client.channels.fetch(i.channelId);
     const msg = await channel.messages.fetch(msgId);
     await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-    await i.reply({ content: "Grupo atualizado!", flags: 64 });
     await saveGroups();
   }
 });
