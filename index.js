@@ -1,216 +1,322 @@
 require("dotenv").config();
-const fs = require("fs-extra");
-const path = "./groups.json";
-
+const fs = require("fs");
 const {
   Client,
   GatewayIntentBits,
-  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  SlashCommandBuilder,
+  EmbedBuilder,
   REST,
-  Routes
+  Routes,
+  SlashCommandBuilder,
+  Events,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle
 } = require("discord.js");
 
-const { Player } = require("discord-player");
-
-// ================= CLIENT =================
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates
-  ]
+  intents: [GatewayIntentBits.Guilds]
 });
 
-const player = new Player(client);
+client.on("error", console.error);
 
-let groups = {};
-if (fs.existsSync(path)) {
-  groups = fs.readJsonSync(path);
+const groups = new Map();
+
+/* ======================= SALVAR / CARREGAR ======================= */
+
+function saveGroups() {
+  try {
+    const data = Object.fromEntries(groups);
+    fs.writeFileSync("./groups.json", JSON.stringify(data, null, 2));
+    console.log(`[Sistema] Grupos salvos (${groups.size})`);
+  } catch (e) {
+    console.error("Erro ao salvar:", e);
+  }
 }
 
-// ================= READY =================
-client.once("clientReady", async () => {
-  console.log(`✅ Bot online como ${client.user.tag}`);
+function loadGroups() {
+  try {
+    if (fs.existsSync("./groups.json")) {
+      const data = JSON.parse(fs.readFileSync("./groups.json", "utf8"));
+      for (const id in data) {
+        data[id].startDate = new Date(data[id].startDate);
+        groups.set(id, data[id]);
+      }
+      console.log(`[Sistema] ${groups.size} grupos carregados.`);
+    }
+  } catch (e) {
+    console.error("Erro ao carregar:", e);
+  }
+}
 
-  // Carrega extractors padrão (vai usar play-dl automaticamente)
-  await player.extractors.loadDefault();
+/* ======================= UTIL ======================= */
+
+function getEmoji(roleName) {
+  const name = roleName.toLowerCase();
+  if (name.includes("tank")) return "🛡️";
+  if (name.includes("heal")) return "💉";
+  if (name.includes("dps")) return "🔥";
+  if (name.includes("arcano")) return "✨";
+  if (name.includes("suporte")) return "🧩";
+  return "⚔️";
+}
+
+function parseRoles(input) {
+  const roles = {};
+  const parts = input.split(",");
+  for (const p of parts) {
+    const match = p.trim().match(/^(\d+)\s+(.+)$/);
+    if (match) {
+      const qty = parseInt(match[1]);
+      const name = match[2].trim();
+      roles[name] = { name, limit: qty };
+    }
+  }
+  return roles;
+}
+
+function parseDateTime(dateStr, timeStr) {
+  const [d, m, y] = dateStr.split("/").map(Number);
+  const [h, min] = timeStr.split(":").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, h + 3, min));
+}
+
+function formatDate(d) {
+  return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+function formatTime(d) {
+  return d.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo"
+  });
+}
+
+/* ======================= EMBED ======================= */
+
+function buildEmbed(group) {
+  const embed = new EmbedBuilder()
+    .setTitle(`⚔️ ${group.title}`)
+    .setColor(0x5865F2)
+    .setDescription(
+      `📅 Data: ${formatDate(group.startDate)}\n` +
+      `🕒 Horário: ${formatTime(group.startDate)} UTC-3\n` +
+      `📝 ${group.description}\n\n` +
+      `👥 Total: ${group.total}`
+    );
+
+  for (const key in group.roles) {
+    const role = group.roles[key];
+    const emoji = getEmoji(role.name);
+    const members =
+      group.members[key].map(u => `<@${u.id}>`).join("\n") || "—";
+
+    embed.addFields({
+      name: `${emoji} ${role.name} (${group.members[key].length}/${role.limit})`,
+      value: members,
+      inline: true
+    });
+  }
+
+  return embed;
+}
+
+/* ======================= BOTÕES ======================= */
+
+function buildButtons(group) {
+  const rows = [];
+  let currentRow = new ActionRowBuilder();
+
+  const allButtons = [];
+
+  for (const key in group.roles) {
+    const role = group.roles[key];
+    const emoji = getEmoji(role.name);
+
+    allButtons.push(
+      new ButtonBuilder()
+        .setCustomId("join_" + key)
+        .setLabel(`${emoji} ${role.name}`)
+        .setStyle(ButtonStyle.Primary)
+    );
+  }
+
+  allButtons.push(
+    new ButtonBuilder()
+      .setCustomId("leave")
+      .setLabel("🚪 Sair")
+      .setStyle(ButtonStyle.Danger),
+
+    new ButtonBuilder()
+      .setCustomId("ping_all")
+      .setLabel("🔔 Ping")
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId("edit_group")
+      .setLabel("📝 Editar")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  for (const button of allButtons) {
+    if (currentRow.components.length === 5) {
+      rows.push(currentRow);
+      currentRow = new ActionRowBuilder();
+    }
+    currentRow.addComponents(button);
+  }
+
+  if (currentRow.components.length > 0) rows.push(currentRow);
+
+  return rows;
+}
+
+/* ======================= READY ======================= */
+
+client.once(Events.ClientReady, async () => {
+  console.log(`Bot online como ${client.user.tag}`);
+  loadGroups();
 
   const commands = [
     new SlashCommandBuilder()
       .setName("criar")
-      .setDescription("Criar grupo Albion")
-      .addStringOption(o=>o.setName("tipo").setDescription("Tipo").setRequired(true))
-      .addIntegerOption(o=>o.setName("jogadores").setDescription("Quantidade total").setRequired(true))
-      .addStringOption(o=>o.setName("data").setDescription("DD/MM").setRequired(true))
-      .addStringOption(o=>o.setName("hora").setDescription("HH:MM").setRequired(true))
-      .addStringOption(o=>o.setName("descricao").setDescription("Descrição").setRequired(true)),
+      .setDescription("Criar grupo de conteúdo")
+      .addStringOption(o=>o.setName("tipo").setDescription("Tipo do conteúdo").setRequired(true))
+      .addIntegerOption(o=>o.setName("jogadores").setDescription("Total de jogadores").setRequired(true))
+      .addStringOption(o=>o.setName("classes").setDescription("Ex: 1 Tank, 2 Healer, 3 DPS").setRequired(true))
+      .addStringOption(o=>o.setName("data").setDescription("DD/MM/AAAA").setRequired(true))
+      .addStringOption(o=>o.setName("horario").setDescription("HH:MM UTC-3").setRequired(true))
+      .addStringOption(o=>o.setName("descricao").setDescription("Descrição")),
 
     new SlashCommandBuilder()
       .setName("divisao")
-      .setDescription("Dividir loot")
-      .addIntegerOption(o=>o.setName("valor").setDescription("Valor total").setRequired(true))
-      .addStringOption(o=>o.setName("jogadores").setDescription("Mencione todos separados por espaço").setRequired(true)),
-
-    new SlashCommandBuilder()
-      .setName("tocar")
-      .setDescription("Tocar música")
-      .addStringOption(o=>o.setName("musica").setDescription("Nome ou link").setRequired(true)),
-
-    new SlashCommandBuilder()
-      .setName("parar")
-      .setDescription("Parar música"),
-
-    new SlashCommandBuilder()
-      .setName("fila")
-      .setDescription("Ver fila")
-  ].map(c=>c.toJSON());
+      .setDescription("Calcular divisão de loot")
+      .addIntegerOption(o=>o.setName("loot").setDescription("Valor total").setRequired(true))
+      .addStringOption(o=>o.setName("mencoes").setDescription("@user1 @user2"))
+  ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  const app = await rest.get(Routes.oauth2CurrentApplication());
-  await rest.put(Routes.applicationCommands(app.id), { body: commands });
+  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
 
-  console.log("✅ Comandos registrados");
+  console.log("Comandos registrados.");
 });
 
-// ================= INTERAÇÕES =================
-client.on("interactionCreate", async (interaction) => {
+/* ======================= INTERAÇÕES ======================= */
 
-  // ===== COMANDOS =====
-  if (interaction.isChatInputCommand()) {
+client.on("interactionCreate", async i => {
 
-    // ===== CRIAR =====
-    if (interaction.commandName === "criar") {
+  /* ===== CRIAR ===== */
+  if (i.isChatInputCommand() && i.commandName === "criar") {
 
-      const tipo = interaction.options.getString("tipo");
-      const total = interaction.options.getInteger("jogadores");
-      const data = interaction.options.getString("data");
-      const hora = interaction.options.getString("hora");
-      const descricao = interaction.options.getString("descricao");
+    const roles = parseRoles(i.options.getString("classes"));
+    if (!Object.keys(roles).length)
+      return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", ephemeral: true });
 
-      groups[interaction.guildId] = {
-        tipo,
-        total,
-        data,
-        hora,
-        descricao,
-        players: []
-      };
+    const members = {};
+    for (const r in roles) members[r] = [];
 
-      fs.writeJsonSync(path, groups);
+    const group = {
+      title: i.options.getString("tipo"),
+      total: i.options.getInteger("jogadores"),
+      roles,
+      members,
+      description: i.options.getString("descricao") || "Sem descrição",
+      startDate: parseDateTime(
+        i.options.getString("data"),
+        i.options.getString("horario")
+      ),
+      creatorId: i.user.id
+    };
 
-      const embed = new EmbedBuilder()
-        .setTitle(`📌 Grupo - ${tipo}`)
-        .setDescription(descricao)
-        .addFields(
-          { name: "📅 Data", value: data, inline: true },
-          { name: "⏰ Hora", value: hora, inline: true },
-          { name: "👥 Jogadores", value: `0/${total}` },
-          { name: "🎭 Classes", value: "🛡️ Tank\n💚 Healer\n⚔️ DPS\n🏹 Ranged\n🧙 Mage" }
-        )
-        .setColor("Green");
+    const msg = await i.reply({
+      embeds: [buildEmbed(group)],
+      components: buildButtons(group),
+      fetchReply: true
+    });
 
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("entrar").setLabel("Entrar").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("sair").setLabel("Sair").setStyle(ButtonStyle.Danger)
-      );
-
-      await interaction.reply({ embeds: [embed], components: [row] });
-    }
-
-    // ===== DIVISAO =====
-    if (interaction.commandName === "divisao") {
-
-      const valor = interaction.options.getInteger("valor");
-      const jogadores = interaction.options.getString("jogadores").match(/<@!?\d+>/g);
-
-      if (!jogadores) return interaction.reply("❌ Mencione jogadores válidos.");
-
-      const total = jogadores.length;
-      const resultado = (valor / total).toFixed(2);
-
-      const embed = new EmbedBuilder()
-        .setTitle("💰 Divisão de Loot")
-        .setDescription(`Valor total: ${valor}`)
-        .addFields(
-          { name: "👥 Jogadores", value: jogadores.join("\n") },
-          { name: "💎 Cada um recebe", value: `${resultado}` }
-        )
-        .setColor("Gold");
-
-      await interaction.reply({ embeds: [embed] });
-    }
-
-    // ===== TOCAR =====
-    if (interaction.commandName === "tocar") {
-
-      await interaction.deferReply();
-      const canal = interaction.member.voice.channel;
-
-      if (!canal) return interaction.editReply("❌ Entre em um canal de voz.");
-
-      const musica = interaction.options.getString("musica");
-
-      try {
-        const { track } = await player.play(canal, musica);
-        interaction.editReply(`🎵 Tocando: ${track.title}`);
-      } catch (err) {
-        console.log(err);
-        interaction.editReply("❌ Erro ao tocar música.");
-      }
-    }
-
-    if (interaction.commandName === "parar") {
-      player.nodes.delete(interaction.guildId);
-      interaction.reply("⏹ Música parada.");
-    }
-
-    if (interaction.commandName === "fila") {
-      const queue = player.nodes.get(interaction.guildId);
-      if (!queue || !queue.currentTrack) return interaction.reply("Fila vazia.");
-      interaction.reply(`🎵 Tocando: ${queue.currentTrack.title}`);
-    }
+    groups.set(msg.id, group);
+    saveGroups();
   }
 
-  // ===== BOTÕES =====
-  if (interaction.isButton()) {
+  /* ===== DIVISÃO ===== */
+  if (i.isChatInputCommand() && i.commandName === "divisao") {
 
-    const group = groups[interaction.guildId];
-    if (!group) return interaction.reply({ content: "Grupo não encontrado.", ephemeral: true });
+    const loot = i.options.getInteger("loot");
+    const mencoes = i.options.getString("mencoes");
 
-    if (interaction.customId === "entrar") {
+    const matches = mencoes ? mencoes.match(/<@!?(\d+)>/g) : null;
+    const jogadores = matches ? matches.length : 0;
 
-      if (group.players.includes(interaction.user.id))
-        return interaction.reply({ content: "Você já está no grupo.", ephemeral: true });
+    if (!jogadores)
+      return i.reply({ content: "Mencione os jogadores!", ephemeral: true });
 
-      if (group.players.length >= group.total)
-        return interaction.reply({ content: "Grupo cheio.", ephemeral: true });
-
-      group.players.push(interaction.user.id);
-    }
-
-    if (interaction.customId === "sair") {
-      group.players = group.players.filter(id => id !== interaction.user.id);
-    }
-
-    fs.writeJsonSync(path, groups);
+    const valor = Math.floor(loot / jogadores);
 
     const embed = new EmbedBuilder()
-      .setTitle(`📌 Grupo - ${group.tipo}`)
-      .setDescription(group.descricao)
-      .addFields(
-        { name: "📅 Data", value: group.data, inline: true },
-        { name: "⏰ Hora", value: group.hora, inline: true },
-        { name: "👥 Jogadores", value: `${group.players.length}/${group.total}\n${group.players.map(id=>`<@${id}>`).join("\n") || "Nenhum"}` },
-        { name: "🎭 Classes", value: "🛡️ Tank\n💚 Healer\n⚔️ DPS\n🏹 Ranged\n🧙 Mage" }
-      )
-      .setColor("Green");
+      .setTitle("💰 Divisão de Loot")
+      .setColor(0x00FF00)
+      .setDescription(
+        `💰 Total: ${loot}\n👥 Jogadores: ${jogadores}\n💎 Cada um recebe: ${valor}`
+      );
 
-    await interaction.update({ embeds: [embed] });
+    return i.reply({ embeds: [embed] });
   }
 
+  /* ===== BOTÕES ===== */
+  if (i.isButton()) {
+
+    const group = groups.get(i.message.id);
+    if (!group)
+      return i.reply({ content: "Evento expirado.", ephemeral: true });
+
+    const user = i.user;
+
+    if (i.customId === "leave") {
+      for (const r in group.members)
+        group.members[r] = group.members[r].filter(u => u.id !== user.id);
+
+      await i.update({
+        embeds: [buildEmbed(group)],
+        components: buildButtons(group)
+      });
+
+      saveGroups();
+      return;
+    }
+
+    if (i.customId === "ping_all") {
+      const mentions = [];
+      for (const r in group.members)
+        group.members[r].forEach(u => mentions.push(`<@${u.id}>`));
+
+      if (!mentions.length)
+        return i.reply({ content: "Ninguém no grupo.", ephemeral: true });
+
+      return i.reply({ content: mentions.join(" ") });
+    }
+
+    const role = i.customId.replace("join_", "");
+
+    for (const r in group.members)
+      group.members[r] = group.members[r].filter(u => u.id !== user.id);
+
+    if (group.members[role].length >= group.roles[role].limit)
+      return i.reply({ content: "Classe cheia.", ephemeral: true });
+
+    group.members[role].push(user);
+
+    await i.update({
+      embeds: [buildEmbed(group)],
+      components: buildButtons(group)
+    });
+
+    saveGroups();
+  }
 });
+
+/* ======================= LOGIN ======================= */
 
 client.login(process.env.DISCORD_TOKEN);
