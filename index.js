@@ -101,7 +101,6 @@ function buildEmbed(group) {
       `👥 Total: ${group.total}`
     );
 
-  // Tempo restante
   const diff = group.startDate - now;
   if (diff > 0) {
     const hours = Math.floor(diff / 1000 / 60 / 60);
@@ -223,41 +222,6 @@ client.on("interactionCreate", async i => {
     await saveGroups();
   }
 
-  // Divisão
-  if (i.isChatInputCommand() && i.commandName === "divisao") {
-    let loot = i.options.getInteger("loot");
-    let jogadores = i.options.getInteger("jogadores");
-    const mencoes = i.options.getString("mencoes");
-    let listaMencoes = [];
-
-    if (mencoes) {
-      const matches = mencoes.match(/<@!?(\d+)>/g);
-      if (matches) listaMencoes = matches;
-    }
-
-    if (jogadores && listaMencoes.length) jogadores = Math.max(jogadores, listaMencoes.length);
-    else if (!jogadores && listaMencoes.length) jogadores = listaMencoes.length;
-    if (!jogadores || jogadores <= 0) return i.reply({ content: "❌ Informe a quantidade de jogadores ou mencione participantes!", flags: 64 });
-
-    const valor = Math.floor(loot / jogadores);
-    const sobra = loot % jogadores;
-
-    const embed = new EmbedBuilder()
-      .setTitle("💰 Divisão de Loot")
-      .setColor(0x00FF00)
-      .addFields(
-        { name: "💰 Loot Total", value: loot.toLocaleString("pt-BR"), inline: true },
-        { name: "👥 Jogadores", value: jogadores.toString(), inline: true },
-        { name: "💎 Cada jogador recebe", value: valor.toLocaleString("pt-BR"), inline: false }
-      );
-
-    if (sobra > 0) embed.addFields({ name: "🔹 Sobra", value: sobra.toLocaleString("pt-BR"), inline: false });
-    if (listaMencoes.length) embed.addFields({ name: "👤 Participantes", value: listaMencoes.join(" "), inline: false });
-
-    return i.reply({ embeds: [embed], flags: 64 });
-  }
-
-  // Botões
   if (i.isButton()) {
     await i.deferUpdate();
     const [action, msgId, roleName] = i.customId.split("_");
@@ -268,21 +232,28 @@ client.on("interactionCreate", async i => {
     const channel = await client.channels.fetch(i.channelId);
     const msg = await channel.messages.fetch(msgId);
 
+    // Sair
     if (action === "leave") {
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
       await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
       await saveGroups();
     }
 
+    // Ping
     if (action === "ping") {
       const mentions = [];
       for (const r in group.members) group.members[r].forEach(u => mentions.push(`<@${u.id}>`));
       if (mentions.length) await channel.send(mentions.join(" "));
     }
 
+    // Editar via DM
     if (action === "edit") {
       if (i.user.id !== group.creatorId) return;
-      const dm = await i.user.createDM();
+      await i.reply({ content: "📩 Verifique suas DMs para editar o grupo.", flags: 64 });
+
+      const dm = await i.user.createDM().catch(() => null);
+      if (!dm) return i.followUp({ content: "❌ Não consegui enviar DM. Ative suas DMs.", flags: 64 });
+
       const questions = [
         { key: "title", text: "Qual é o **novo título** do grupo?" },
         { key: "description", text: "Qual é a **nova descrição** do grupo?" },
@@ -293,14 +264,17 @@ client.on("interactionCreate", async i => {
       ];
 
       let step = 0;
-      await dm.send(questions[step].text);
+      const sendNext = async () => {
+        if (step >= questions.length) return finalize();
+        await dm.send(questions[step].text);
+      };
 
       const collector = dm.createMessageCollector({
         filter: msg => msg.author.id === i.user.id,
         time: 300_000
       });
 
-      collector.on("collect", async msg => {
+      collector.on("collect", msg => {
         const answer = msg.content.trim();
         const q = questions[step];
 
@@ -309,12 +283,11 @@ client.on("interactionCreate", async i => {
         else group[q.key] = answer;
 
         step++;
-        if (step < questions.length) await dm.send(questions[step].text);
-        else collector.stop("finalizado");
+        sendNext();
       });
 
-      collector.on("end", async (collected, reason) => {
-        if (reason !== "finalizado") return dm.send("⏰ Tempo esgotado! Tente editar novamente.");
+      const finalize = async () => {
+        collector.stop("finalizado");
         group.startDate = parseDateTime(group.date, group.time);
 
         for (const key in group.roles) {
@@ -323,15 +296,20 @@ client.on("interactionCreate", async i => {
             group.members[key] = group.members[key].slice(0, group.roles[key].limit);
         }
 
-        await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+        const msgEdit = await channel.messages.fetch(msgId).catch(() => null);
+        if (msgEdit) await msgEdit.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+
         await saveGroups();
         await dm.send("✅ Grupo atualizado com sucesso!");
-      });
+      };
+
+      sendNext();
     }
 
+    // Entrar
     if (action === "join") {
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
-      if (group.members[roleName].length < group.roles[roleName].limit) group.members[roleName].push({ id: user.id, username: user.tag });
+      if (group.members[roleName].length < group.roles[roleName].limit) group.members[roleName].push({ id: user.id });
       await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
       await saveGroups();
     }
