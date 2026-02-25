@@ -15,11 +15,7 @@ const {
 } = require("discord.js");
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
 const groups = new Map();
@@ -249,7 +245,7 @@ client.on("interactionCreate", async i => {
       if (mentions.length) await channel.send(mentions.join(" "));
     }
 
-    // Editar via DM (VERSÃO SEGURA)
+    // Editar via DM (funcional)
     if (action === "edit") {
       if (i.user.id !== group.creatorId) return;
       await i.followUp({ content: "📩 Verifique suas DMs para editar o grupo.", ephemeral: true });
@@ -267,6 +263,7 @@ client.on("interactionCreate", async i => {
       ];
 
       let step = 0;
+
       const sendNext = async () => {
         if (step >= questions.length) return finalize();
         await dm.send(questions[step].text).catch(() => finalize());
