@@ -244,27 +244,58 @@ client.on("interactionCreate", async i => {
   /* ===== DIVISÃO ===== */
   if (i.isChatInputCommand() && i.commandName === "divisao") {
 
-    const loot = i.options.getInteger("loot");
-    const mencoes = i.options.getString("mencoes");
+  const loot = i.options.getInteger("loot");
+  let jogadores = i.options.getInteger("jogadores");
+  const mencoes = i.options.getString("mencoes");
 
-    const matches = mencoes ? mencoes.match(/<@!?(\d+)>/g) : null;
-    const jogadores = matches ? matches.length : 0;
+  let listaMencoes = [];
+  let quantidadeMencoes = 0;
 
-    if (!jogadores)
-      return i.reply({ content: "Mencione os jogadores!", ephemeral: true });
-
-    const valor = Math.floor(loot / jogadores);
-
-    const embed = new EmbedBuilder()
-      .setTitle("💰 Divisão de Loot")
-      .setColor(0x00FF00)
-      .setDescription(
-        `💰 Total: ${loot}\n👥 Jogadores: ${jogadores}\n💎 Cada um recebe: ${valor}`
-      );
-
-    return i.reply({ embeds: [embed] });
+  if (mencoes) {
+    const matches = mencoes.match(/<@!?(\d+)>/g);
+    if (matches) {
+      listaMencoes = matches;
+      quantidadeMencoes = matches.length;
+    }
   }
 
+  // Prioridade:
+  // Se tiver jogadores e menções → usa o maior número
+  if (jogadores && quantidadeMencoes) {
+    jogadores = Math.max(jogadores, quantidadeMencoes);
+  } 
+  else if (!jogadores && quantidadeMencoes) {
+    jogadores = quantidadeMencoes;
+  }
+
+  if (!jogadores || jogadores <= 0) {
+    return i.reply({
+      content: "❌ Informe a quantidade de jogadores ou mencione participantes!",
+      ephemeral: true
+    });
+  }
+
+  const valor = Math.floor(loot / jogadores);
+
+  const embed = new EmbedBuilder()
+    .setTitle("💰 Divisão de Loot")
+    .setColor(0x00FF00)
+    .addFields(
+      { name: "💰 Loot Total", value: loot.toLocaleString("pt-BR"), inline: true },
+      { name: "👥 Jogadores", value: jogadores.toString(), inline: true },
+      { name: "💎 Cada jogador recebe", value: valor.toLocaleString("pt-BR"), inline: false }
+    );
+
+  if (listaMencoes.length) {
+    embed.addFields({
+      name: "👤 Participantes",
+      value: listaMencoes.join(" "),
+      inline: false
+    });
+  }
+
+  return i.reply({ embeds: [embed] });
+  }
   /* ===== BOTÕES ===== */
   if (i.isButton()) {
 
