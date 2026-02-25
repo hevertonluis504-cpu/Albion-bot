@@ -15,12 +15,9 @@ const {
   TextInputBuilder,
   TextInputStyle
 } = require("discord.js");
-const { DateTime } = require("luxon");
+const { DateTime, Interval } = require("luxon");
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
-
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const groups = new Map();
 
 /* ======================= SALVAR / CARREGAR ======================= */
@@ -28,7 +25,6 @@ async function saveGroups() {
   try {
     const data = Object.fromEntries(groups);
     await fs.writeFile("./groups.json", JSON.stringify(data, null, 2));
-    console.log(`[Sistema] Grupos salvos (${groups.size})`);
   } catch (e) {
     console.error("Erro ao salvar:", e);
   }
@@ -42,7 +38,6 @@ async function loadGroups() {
       data[id].startDate = new Date(data[id].startDate);
       groups.set(id, data[id]);
     }
-    console.log(`[Sistema] ${groups.size} grupos carregados.`);
   } catch (e) {
     console.error("Erro ao carregar:", e);
   }
@@ -81,11 +76,19 @@ function parseDateTime(dateStr, timeStr) {
 }
 
 function formatDate(d) {
-  return DateTime.fromJSDate(d).setZone("America/Sao_Paulo").toLocaleString(DateTime.DATE_SHORT);
+  return DateTime.fromJSDate(d).setZone("America/Sao_Paulo").toFormat("dd/LL/yyyy");
 }
 
 function formatTime(d) {
   return DateTime.fromJSDate(d).setZone("America/Sao_Paulo").toFormat("HH:mm");
+}
+
+function getTimeRemaining(d) {
+  const now = DateTime.now().setZone("America/Sao_Paulo");
+  const eventTime = DateTime.fromJSDate(d).setZone("America/Sao_Paulo");
+  if (eventTime <= now) return "✅ O evento já começou!";
+  const diff = Interval.fromDateTimes(now, eventTime).toDuration(["days","hours","minutes"]).toObject();
+  return `${diff.days || 0}d ${diff.hours || 0}h ${diff.minutes || 0}m`;
 }
 
 /* ======================= EMBED ======================= */
@@ -96,6 +99,7 @@ function buildEmbed(group) {
     .setDescription(
       `📅 Data: ${formatDate(group.startDate)}\n` +
       `🕒 Horário: ${formatTime(group.startDate)} UTC-3\n` +
+      `⏳ Tempo restante: ${getTimeRemaining(group.startDate)}\n` +
       `📝 ${group.description}\n\n` +
       `👥 Total: ${group.total}`
     );
@@ -132,7 +136,7 @@ function buildButtons(group, page = 0) {
   });
   rows.push(roleRow);
 
-  // Navegação se necessário
+  // Navegação
   if (roleKeys.length > pageSize) {
     const navRow = new ActionRowBuilder();
     if (page > 0)
@@ -152,7 +156,8 @@ function buildButtons(group, page = 0) {
   const generalRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("leave").setLabel("🚪 Sair").setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId("ping_all").setLabel("🔔 Ping").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("edit_group").setLabel("📝 Editar").setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId("edit_group").setLabel("📝 Editar").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("time_remaining").setLabel("⏳ Tempo restante").setStyle(ButtonStyle.Secondary)
   );
   rows.push(generalRow);
 
@@ -184,11 +189,11 @@ client.once(Events.ClientReady, async () => {
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-  console.log("Comandos registrados.");
 });
 
 /* ======================= INTERAÇÕES ======================= */
 client.on("interactionCreate", async i => {
+
   // ===== CRIAR =====
   if (i.isChatInputCommand() && i.commandName === "criar") {
     const roles = parseRoles(i.options.getString("classes"));
@@ -284,6 +289,11 @@ client.on("interactionCreate", async i => {
       return i.reply({ content: mentions.join(" ") });
     }
 
+    // TEMPO RESTANTE
+    if (i.customId === "time_remaining") {
+      return i.reply({ content: `⏳ Tempo restante: ${getTimeRemaining(group.startDate)}`, ephemeral: true });
+    }
+
     // EDITAR
     if (i.customId === "edit_group") {
       if (i.user.id !== group.creatorId)
@@ -307,8 +317,24 @@ client.on("interactionCreate", async i => {
         .setValue(group.description)
         .setRequired(false);
 
+      const dateInput = new TextInputBuilder()
+        .setCustomId("newDate")
+        .setLabel("Data (DD/MM/AAAA)")
+        .setStyle(TextInputStyle.Short)
+        .setValue(formatDate(group.startDate))
+        .setRequired(true);
+
+      const timeInput = new TextInputBuilder()
+        .setCustomId("newTime")
+        .setLabel("Horário (HH:MM UTC-3)")
+        .setStyle(TextInputStyle.Short)
+        .setValue(formatTime(group.startDate))
+        .setRequired(true);
+
       modal.addComponents(new ActionRowBuilder().addComponents(titleInput));
       modal.addComponents(new ActionRowBuilder().addComponents(descInput));
+      modal.addComponents(new ActionRowBuilder().addComponents(dateInput));
+      modal.addComponents(new ActionRowBuilder().addComponents(timeInput));
 
       return i.showModal(modal);
     }
@@ -317,7 +343,6 @@ client.on("interactionCreate", async i => {
     if (i.customId.startsWith("join_")) {
       const role = i.customId.replace("join_", "");
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
-
       if (group.members[role].length >= group.roles[role].limit)
         return i.reply({ content: "Classe cheia.", ephemeral: true });
 
@@ -335,6 +360,10 @@ client.on("interactionCreate", async i => {
 
     group.title = i.fields.getTextInputValue("newTitle");
     group.description = i.fields.getTextInputValue("newDesc");
+
+    const newDate = i.fields.getTextInputValue("newDate");
+    const newTime = i.fields.getTextInputValue("newTime");
+    group.startDate = parseDateTime(newDate, newTime);
 
     await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, group.page) });
     await saveGroups();
