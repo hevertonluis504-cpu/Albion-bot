@@ -1,5 +1,6 @@
 require("dotenv").config();
 const fs = require("fs").promises;
+const http = require("http");
 const {
   Client,
   GatewayIntentBits,
@@ -116,7 +117,7 @@ function buildEmbed(group) {
   return embed;
 }
 
-/* ======================= BOTÕES COM PAGINAÇÃO ======================= */
+/* ======================= BOTÕES ======================= */
 function buildButtons(group, page = 0) {
   const rows = [];
   const roleKeys = Object.keys(group.roles);
@@ -198,7 +199,7 @@ client.on("interactionCreate", async i => {
   if (i.isChatInputCommand() && i.commandName === "criar") {
     const roles = parseRoles(i.options.getString("classes"));
     if (!Object.keys(roles).length)
-      return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", ephemeral: true });
+      return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", flags: 64 });
 
     const members = {};
     for (const r in roles) members[r] = [];
@@ -217,7 +218,7 @@ client.on("interactionCreate", async i => {
     const msg = await i.reply({
       embeds: [buildEmbed(group)],
       components: buildButtons(group),
-      fetchReply: true
+      withResponse: true
     });
 
     groups.set(msg.id, group);
@@ -240,7 +241,7 @@ client.on("interactionCreate", async i => {
     else if (!jogadores && listaMencoes.length) jogadores = listaMencoes.length;
 
     if (!jogadores || jogadores <= 0)
-      return i.reply({ content: "❌ Informe a quantidade de jogadores ou mencione participantes!", ephemeral: true });
+      return i.reply({ content: "❌ Informe a quantidade de jogadores ou mencione participantes!", flags: 64 });
 
     const valor = Math.floor(loot / jogadores);
     const sobra = loot % jogadores;
@@ -257,13 +258,13 @@ client.on("interactionCreate", async i => {
     if (sobra > 0) embed.addFields({ name: "🔹 Sobra", value: sobra.toLocaleString("pt-BR"), inline: false });
     if (listaMencoes.length) embed.addFields({ name: "👤 Participantes", value: listaMencoes.join(" "), inline: false });
 
-    return i.reply({ embeds: [embed] });
+    return i.reply({ embeds: [embed], flags: 64 });
   }
 
   // ===== BOTÕES =====
   if (i.isButton()) {
     const group = groups.get(i.message.id);
-    if (!group) return i.reply({ content: "Evento expirado.", ephemeral: true });
+    if (!group) return i.reply({ content: "Evento expirado.", flags: 64 });
     const user = i.user;
 
     // PAGINAÇÃO
@@ -285,19 +286,19 @@ client.on("interactionCreate", async i => {
     if (i.customId === "ping_all") {
       const mentions = [];
       for (const r in group.members) group.members[r].forEach(u => mentions.push(`<@${u.id}>`));
-      if (!mentions.length) return i.reply({ content: "Ninguém no grupo.", ephemeral: true });
-      return i.reply({ content: mentions.join(" ") });
+      if (!mentions.length) return i.reply({ content: "Ninguém no grupo.", flags: 64 });
+      return i.reply({ content: mentions.join(" "), flags: 64 });
     }
 
     // TEMPO RESTANTE
     if (i.customId === "time_remaining") {
-      return i.reply({ content: `⏳ Tempo restante: ${getTimeRemaining(group.startDate)}`, ephemeral: true });
+      return i.reply({ content: `⏳ Tempo restante: ${getTimeRemaining(group.startDate)}`, flags: 64 });
     }
 
     // EDITAR
     if (i.customId === "edit_group") {
       if (i.user.id !== group.creatorId)
-        return i.reply({ content: "❌ Apenas o criador pode editar este grupo.", ephemeral: true });
+        return i.reply({ content: "❌ Apenas o criador pode editar este grupo.", flags: 64 });
 
       const modal = new ModalBuilder()
         .setCustomId(`editGroup_${i.message.id}`)
@@ -344,7 +345,7 @@ client.on("interactionCreate", async i => {
       const role = i.customId.replace("join_", "");
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
       if (group.members[role].length >= group.roles[role].limit)
-        return i.reply({ content: "Classe cheia.", ephemeral: true });
+        return i.reply({ content: "Classe cheia.", flags: 64 });
 
       group.members[role].push({ id: user.id, username: user.tag });
       await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, group.page) });
@@ -356,7 +357,7 @@ client.on("interactionCreate", async i => {
   if (i.isModalSubmit() && i.customId.startsWith("editGroup_")) {
     const messageId = i.customId.split("_")[1];
     const group = groups.get(messageId);
-    if (!group) return i.reply({ content: "Grupo não encontrado.", ephemeral: true });
+    if (!group) return i.reply({ content: "Grupo não encontrado.", flags: 64 });
 
     group.title = i.fields.getTextInputValue("newTitle");
     group.description = i.fields.getTextInputValue("newDesc");
@@ -372,3 +373,10 @@ client.on("interactionCreate", async i => {
 
 /* ======================= LOGIN ======================= */
 client.login(process.env.DISCORD_TOKEN);
+
+/* ======================= SERVIDOR HTTP MINIMO ======================= */
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Bot online!\n");
+}).listen(port, () => console.log(`Servidor web rodando na porta ${port}`));
