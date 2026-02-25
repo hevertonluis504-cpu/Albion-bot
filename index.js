@@ -11,13 +11,10 @@ const {
   REST,
   Routes,
   SlashCommandBuilder,
-  Events,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle
+  Events
 } = require("discord.js");
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 const groups = new Map();
 
 /* ======================= SALVAR / CARREGAR ======================= */
@@ -260,23 +257,43 @@ client.on("interactionCreate", async i => {
 
     if (action === "edit") {
       if (i.user.id !== group.creatorId) return;
-      const modal = new ModalBuilder().setCustomId(`editGroup_${msgId}`).setTitle("Editar Grupo");
 
-      const titleInput = new TextInputBuilder().setCustomId("newTitle").setLabel("Título").setStyle(TextInputStyle.Short).setValue(group.title).setRequired(true);
-      const descInput = new TextInputBuilder().setCustomId("newDesc").setLabel("Descrição").setStyle(TextInputStyle.Paragraph).setValue(group.description).setRequired(false);
-      const dateInput = new TextInputBuilder().setCustomId("newDate").setLabel("Data (DD/MM/AAAA)").setStyle(TextInputStyle.Short).setValue(formatDate(group.startDate)).setRequired(true);
-      const timeInput = new TextInputBuilder().setCustomId("newTime").setLabel("Horário (HH:MM UTC-3)").setStyle(TextInputStyle.Short).setValue(formatTime(group.startDate)).setRequired(true);
-      const totalInput = new TextInputBuilder().setCustomId("newTotal").setLabel("Total de jogadores").setStyle(TextInputStyle.Short).setValue(group.total.toString()).setRequired(true);
-      const classesInput = new TextInputBuilder().setCustomId("newClasses").setLabel("Classes (Ex: 1 Tank, 2 Healer, 3 DPS)").setStyle(TextInputStyle.Paragraph).setValue(Object.keys(group.roles).map(k => `${group.roles[k].limit} ${group.roles[k].name}`).join(", ")).setRequired(true);
+      const dm = await i.user.createDM();
+      await dm.send("Vamos editar seu grupo! Responda cada pergunta abaixo:");
 
-      modal.addComponents(new ActionRowBuilder().addComponents(titleInput));
-      modal.addComponents(new ActionRowBuilder().addComponents(descInput));
-      modal.addComponents(new ActionRowBuilder().addComponents(dateInput));
-      modal.addComponents(new ActionRowBuilder().addComponents(timeInput));
-      modal.addComponents(new ActionRowBuilder().addComponents(totalInput));
-      modal.addComponents(new ActionRowBuilder().addComponents(classesInput));
+      const questions = [
+        { key: "title", text: "Novo título do grupo?" },
+        { key: "description", text: "Nova descrição?" },
+        { key: "date", text: "Nova data (DD/MM/AAAA)?" },
+        { key: "time", text: "Novo horário (HH:MM UTC-3)?" },
+        { key: "total", text: "Novo total de jogadores?" },
+        { key: "classes", text: "Novas classes (Ex: 1 Tank, 2 Healer, 3 DPS)?" }
+      ];
 
-      return i.showModal(modal);
+      const collector = dm.createMessageCollector({ filter: m => m.author.id === i.user.id, time: 300000 });
+      let step = 0;
+
+      collector.on("collect", async msg => {
+        group[questions[step].key] = msg.content;
+        step++;
+        if (step < questions.length) {
+          await dm.send(questions[step].text);
+        } else {
+          collector.stop();
+          group.startDate = parseDateTime(group.date, group.time);
+          group.total = parseInt(group.total);
+          group.roles = parseRoles(group.classes);
+
+          for (const key in group.roles) {
+            if (!group.members[key]) group.members[key] = [];
+            if (group.members[key].length > group.roles[key].limit) group.members[key] = group.members[key].slice(0, group.roles[key].limit);
+          }
+
+          await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+          await saveGroups();
+          await dm.send("✅ Grupo atualizado com sucesso!");
+        }
+      });
     }
 
     if (action === "join") {
@@ -285,29 +302,6 @@ client.on("interactionCreate", async i => {
       await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
       await saveGroups();
     }
-  }
-
-  // ===== MODAL SUBMIT =====
-  if (i.isModalSubmit() && i.customId.startsWith("editGroup_")) {
-    const msgId = i.customId.split("_")[1];
-    const group = groups.get(msgId);
-    if (!group) return;
-
-    group.title = i.fields.getTextInputValue("newTitle");
-    group.description = i.fields.getTextInputValue("newDesc");
-    group.startDate = parseDateTime(i.fields.getTextInputValue("newDate"), i.fields.getTextInputValue("newTime"));
-    group.total = parseInt(i.fields.getTextInputValue("newTotal"));
-    group.roles = parseRoles(i.fields.getTextInputValue("newClasses"));
-
-    for (const key in group.roles) {
-      if (!group.members[key]) group.members[key] = [];
-      if (group.members[key].length > group.roles[key].limit) group.members[key] = group.members[key].slice(0, group.roles[key].limit);
-    }
-
-    const channel = await client.channels.fetch(i.channelId);
-    const msg = await channel.messages.fetch(msgId);
-    await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-    await saveGroups();
   }
 });
 
