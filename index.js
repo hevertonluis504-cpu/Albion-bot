@@ -181,12 +181,24 @@ client.once(Events.ClientReady, async () => {
       .addStringOption(o => o.setName("data").setDescription("DD/MM/AAAA").setRequired(true))
       .addStringOption(o => o.setName("horario").setDescription("HH:MM UTC-3").setRequired(true))
       .addStringOption(o => o.setName("descricao").setDescription("Descrição")),
+
     new SlashCommandBuilder()
       .setName("divisao")
       .setDescription("Calcular divisão de loot")
       .addIntegerOption(o => o.setName("loot").setDescription("Valor total do loot").setRequired(true))
       .addIntegerOption(o => o.setName("jogadores").setDescription("Quantidade de jogadores").setRequired(false))
-      .addStringOption(o => o.setName("mencoes").setDescription("Mencione os jogadores (@user1 @user2)").setRequired(false))
+      .addStringOption(o => o.setName("mencoes").setDescription("Mencione os jogadores (@user1 @user2)").setRequired(false)),
+
+    new SlashCommandBuilder()
+      .setName("editar")
+      .setDescription("Editar um grupo existente")
+      .addStringOption(o => o.setName("msgid").setDescription("ID da mensagem do grupo").setRequired(true))
+      .addStringOption(o => o.setName("titulo").setDescription("Novo título"))
+      .addStringOption(o => o.setName("descricao").setDescription("Nova descrição"))
+      .addIntegerOption(o => o.setName("total").setDescription("Novo total de jogadores"))
+      .addStringOption(o => o.setName("data").setDescription("Nova data (DD/MM/AAAA)"))
+      .addStringOption(o => o.setName("horario").setDescription("Novo horário (HH:MM UTC-3)"))
+      .addStringOption(o => o.setName("classes").setDescription("Novas classes (Ex: 1 Tank, 2 Healer, 3 DPS)"))
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
@@ -195,30 +207,102 @@ client.once(Events.ClientReady, async () => {
 
 /* ======================= INTERAÇÕES ======================= */
 client.on("interactionCreate", async i => {
-  if (i.isChatInputCommand() && i.commandName === "criar") {
-    const roles = parseRoles(i.options.getString("classes"));
-    if (!Object.keys(roles).length) return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", ephemeral: true });
+  if (i.isChatInputCommand()) {
+    // Criar grupo
+    if (i.commandName === "criar") {
+      const roles = parseRoles(i.options.getString("classes"));
+      if (!Object.keys(roles).length) return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", ephemeral: true });
 
-    const members = {};
-    for (const r in roles) members[r] = [];
+      const members = {};
+      for (const r in roles) members[r] = [];
 
-    const group = {
-      title: i.options.getString("tipo"),
-      total: i.options.getInteger("jogadores"),
-      roles,
-      members,
-      description: i.options.getString("descricao") || "Sem descrição",
-      startDate: parseDateTime(i.options.getString("data"), i.options.getString("horario")),
-      creatorId: i.user.id,
-      channelId: i.channelId
-    };
+      const group = {
+        title: i.options.getString("tipo"),
+        total: i.options.getInteger("jogadores"),
+        roles,
+        members,
+        description: i.options.getString("descricao") || "Sem descrição",
+        startDate: parseDateTime(i.options.getString("data"), i.options.getString("horario")),
+        creatorId: i.user.id,
+        channelId: i.channelId
+      };
 
-    const msg = await i.reply({ embeds: [buildEmbed(group)], components: buildButtons(group, "temp"), fetchReply: true });
-    groups.set(msg.id, group);
-    await msg.edit({ components: buildButtons(group, msg.id) });
-    await saveGroups();
+      const msg = await i.reply({ embeds: [buildEmbed(group)], components: buildButtons(group, "temp"), fetchReply: true });
+      groups.set(msg.id, group);
+      await msg.edit({ components: buildButtons(group, msg.id) });
+      await saveGroups();
+    }
+
+    // Divisão de loot
+    if (i.commandName === "divisao") {
+      const loot = i.options.getInteger("loot");
+      let jogadores = i.options.getInteger("jogadores");
+      const mencoes = i.options.getString("mencoes");
+      let listaMencoes = [];
+      let quantidadeMencoes = 0;
+
+      if (mencoes) {
+        const matches = mencoes.match(/<@!?(\d+)>/g);
+        if (matches) { listaMencoes = matches; quantidadeMencoes = matches.length; }
+      }
+
+      if (jogadores && quantidadeMencoes) jogadores = Math.max(jogadores, quantidadeMencoes);
+      else if (!jogadores && quantidadeMencoes) jogadores = quantidadeMencoes;
+
+      if (!jogadores || jogadores <= 0) return i.reply({ content: "❌ Informe a quantidade de jogadores ou mencione participantes!", ephemeral: true });
+
+      const valor = Math.floor(loot / jogadores);
+      const embed = new EmbedBuilder()
+        .setTitle("💰 Divisão de Loot")
+        .setColor(0x00FF00)
+        .addFields(
+          { name: "💰 Loot Total", value: loot.toLocaleString("pt-BR"), inline: true },
+          { name: "👥 Jogadores", value: jogadores.toString(), inline: true },
+          { name: "💎 Cada jogador recebe", value: valor.toLocaleString("pt-BR"), inline: false }
+        );
+      if (listaMencoes.length) embed.addFields({ name: "👤 Participantes", value: listaMencoes.join(" "), inline: false });
+      return i.reply({ embeds: [embed] });
+    }
+
+    // Editar grupo
+    if (i.commandName === "editar") {
+      const msgId = i.options.getString("msgid");
+      const group = groups.get(msgId);
+      if (!group) return i.reply({ content: "❌ Grupo não encontrado.", ephemeral: true });
+      if (i.user.id !== group.creatorId) return i.reply({ content: "❌ Apenas o criador pode editar.", ephemeral: true });
+
+      const titulo = i.options.getString("titulo");
+      const descricao = i.options.getString("descricao");
+      const total = i.options.getInteger("total");
+      const data = i.options.getString("data");
+      const horario = i.options.getString("horario");
+      const classes = i.options.getString("classes");
+
+      if (titulo) group.title = titulo;
+      if (descricao) group.description = descricao;
+      if (total) group.total = total;
+      if (data && horario) group.startDate = parseDateTime(data, horario);
+      if (classes) group.roles = parseRoles(classes);
+
+      for (const key in group.roles) {
+        if (!group.members[key]) group.members[key] = [];
+        if (group.members[key].length > group.roles[key].limit)
+          group.members[key] = group.members[key].slice(0, group.roles[key].limit);
+      }
+
+      const channel = await client.channels.fetch(group.channelId).catch(() => null);
+      if (!channel) return i.reply({ content: "❌ Canal do grupo não encontrado.", ephemeral: true });
+
+      const msg = await channel.messages.fetch(msgId).catch(() => null);
+      if (!msg) return i.reply({ content: "❌ Mensagem do grupo não encontrada.", ephemeral: true });
+
+      await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+      await saveGroups();
+      await i.reply({ content: "✅ Grupo atualizado com sucesso!", ephemeral: true });
+    }
   }
 
+  // Botões
   if (i.isButton()) {
     await i.deferUpdate();
     const [action, msgId, roleName] = i.customId.split("_");
@@ -231,21 +315,18 @@ client.on("interactionCreate", async i => {
     const msg = await channel.messages.fetch(msgId).catch(() => null);
     if (!msg) return;
 
-    // Sair
     if (action === "leave") {
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
       await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
       await saveGroups();
     }
 
-    // Ping
     if (action === "ping") {
       const mentions = [];
       for (const r in group.members) group.members[r].forEach(u => mentions.push(`<@${u.id}>`));
       if (mentions.length) await channel.send(mentions.join(" "));
     }
 
-    // Entrar
     if (action === "join") {
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
       if (group.members[roleName].length < group.roles[roleName].limit) group.members[roleName].push({ id: user.id });
