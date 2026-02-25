@@ -17,7 +17,7 @@ const {
   TextInputStyle
 } = require("discord.js");
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 const groups = new Map();
 
 /* ======================= SALVAR / CARREGAR ======================= */
@@ -193,11 +193,11 @@ client.on("interactionCreate", async i => {
       creatorId: i.user.id
     };
 
-    const msg = await i.reply({ embeds: [buildEmbed(group)], components: buildButtons(group, "temp"), withResponse: true });
-
+    const msg = await i.reply({ embeds: [buildEmbed(group)], components: buildButtons(group, "temp"), fetchReply: true });
     groups.set(msg.id, group);
+
     // Atualiza os botões com ID real da mensagem
-    await i.editReply({ components: buildButtons(group, msg.id) });
+    await msg.edit({ components: buildButtons(group, msg.id) });
     await saveGroups();
   }
 
@@ -242,9 +242,13 @@ client.on("interactionCreate", async i => {
     if (!group) return i.reply({ content: "Evento expirado.", flags: 64 });
     const user = i.user;
 
+    const channel = await client.channels.fetch(i.channelId);
+    const msg = await channel.messages.fetch(msgId);
+
     if (action === "leave") {
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
-      await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+      await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+      await i.reply({ content: "Você saiu do grupo.", flags: 64 });
       await saveGroups();
       return;
     }
@@ -282,7 +286,8 @@ client.on("interactionCreate", async i => {
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
       if (group.members[roleName].length >= group.roles[roleName].limit) return i.reply({ content: "Classe cheia.", flags: 64 });
       group.members[roleName].push({ id: user.id, username: user.tag });
-      await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+      await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+      await i.reply({ content: "Você entrou no grupo.", flags: 64 });
       await saveGroups();
     }
   }
@@ -304,7 +309,10 @@ client.on("interactionCreate", async i => {
       if (group.members[key].length > group.roles[key].limit) group.members[key] = group.members[key].slice(0, group.roles[key].limit);
     }
 
-    await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+    const channel = await client.channels.fetch(i.channelId);
+    const msg = await channel.messages.fetch(msgId);
+    await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+    await i.reply({ content: "Grupo atualizado!", flags: 64 });
     await saveGroups();
   }
 });
