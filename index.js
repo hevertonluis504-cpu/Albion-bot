@@ -15,56 +15,51 @@ const {
 } = require("discord.js");
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+  intents: [GatewayIntentBits.Guilds]
 });
 
 const groups = new Map();
 
 /* ======================= SALVAR / CARREGAR ======================= */
+
 async function saveGroups() {
-  try {
-    const data = Object.fromEntries(groups);
-    await fs.writeFile("./groups.json", JSON.stringify(data, null, 2));
-  } catch (e) {
-    console.error("Erro ao salvar:", e);
-  }
+  const data = Object.fromEntries(groups);
+  await fs.writeFile("./groups.json", JSON.stringify(data, null, 2));
 }
 
 async function loadGroups() {
   try {
-    await fs.access("./groups.json").catch(() => null);
     const data = JSON.parse(await fs.readFile("./groups.json", "utf8"));
     for (const id in data) {
       data[id].startDate = new Date(data[id].startDate);
       groups.set(id, data[id]);
     }
-  } catch (e) {
-    console.error("Erro ao carregar:", e);
+  } catch {}
+}
+
+/* ======================= LIMPAR BOTÕES ANTIGOS ======================= */
+
+async function limparBotoesAntigos() {
+  for (const [msgId, group] of groups.entries()) {
+    try {
+      const channel = await client.channels.fetch(group.channelId);
+      const msg = await channel.messages.fetch(msgId);
+      await msg.edit({ components: [] });
+    } catch {}
   }
 }
 
 /* ======================= UTIL ======================= */
-function getEmoji(roleName) {
-  const name = roleName.toLowerCase();
-  if (name.includes("tank")) return "🛡️";
-  if (name.includes("heal")) return "💉";
-  if (name.includes("dps")) return "🔥";
-  if (name.includes("arcano")) return "✨";
-  if (name.includes("suporte")) return "🧩";
-  return "⚔️";
-}
 
 function parseRoles(input) {
   const roles = {};
   input.split(",").forEach(p => {
     const match = p.trim().match(/^(\d+)\s+(.+)$/);
     if (match) {
-      const [_, qty, name] = match;
-      roles[name.trim()] = { name: name.trim(), limit: parseInt(qty) };
+      roles[match[2]] = {
+        name: match[2],
+        limit: parseInt(match[1])
+      };
     }
   });
   return roles;
@@ -89,32 +84,32 @@ function formatTime(d) {
 }
 
 /* ======================= EMBED ======================= */
+
 function buildEmbed(group) {
   const now = new Date();
   const embed = new EmbedBuilder()
     .setTitle(`⚔️ ${group.title}`)
     .setColor(0x5865F2)
     .setDescription(
-      `📅 Data: ${formatDate(group.startDate)}\n` +
-      `🕒 Horário: ${formatTime(group.startDate)} UTC-3\n` +
-      `📝 ${group.description}\n\n` +
+      `📅 ${formatDate(group.startDate)}\n` +
+      `🕒 ${formatTime(group.startDate)} UTC-3\n\n` +
       `👥 Total: ${group.total}`
     );
 
   const diff = group.startDate - now;
   if (diff > 0) {
-    const hours = Math.floor(diff / 1000 / 60 / 60);
-    const minutes = Math.floor((diff / 1000 / 60) % 60);
-    embed.addFields({ name: "⏳ Começa em", value: `${hours}h ${minutes}m`, inline: true });
+    const h = Math.floor(diff / 1000 / 60 / 60);
+    const m = Math.floor((diff / 1000 / 60) % 60);
+    embed.addFields({ name: "⏳ Começa em", value: `${h}h ${m}m` });
   } else {
-    embed.addFields({ name: "✅ Status", value: "Evento iniciado!", inline: true });
+    embed.addFields({ name: "✅ Status", value: "Evento iniciado!" });
   }
 
-  for (const key in group.roles) {
-    const role = group.roles[key];
-    const members = group.members[key]?.map(u => `<@${u.id}>`).join("\n") || "—";
+  for (const r in group.roles) {
+    const role = group.roles[r];
+    const members = group.members[r]?.map(u => `<@${u}>`).join("\n") || "—";
     embed.addFields({
-      name: `${getEmoji(role.name)} ${role.name} (${group.members[key].length}/${role.limit})`,
+      name: `${role.name} (${group.members[r].length}/${role.limit})`,
       value: members,
       inline: true
     });
@@ -124,81 +119,71 @@ function buildEmbed(group) {
 }
 
 /* ======================= BOTÕES ======================= */
+
 function buildButtons(group, msgId) {
   const rows = [];
-  const allButtons = [];
-  const eventStarted = group.startDate <= new Date();
+  const all = [];
+  const started = group.startDate <= new Date();
 
-  // Botões de roles
-  for (const key in group.roles) {
-    allButtons.push(
+  for (const r in group.roles) {
+    all.push(
       new ButtonBuilder()
-        .setCustomId(`join_${msgId}_${key}`)
-        .setLabel(`${getEmoji(group.roles[key].name)} ${group.roles[key].name}`)
+        .setCustomId(`join_${msgId}_${r}`)
+        .setLabel(r)
         .setStyle(ButtonStyle.Primary)
-        .setDisabled(eventStarted)
+        .setDisabled(started)
     );
   }
 
-  // Botões leave e ping
-  allButtons.push(
+  all.push(
     new ButtonBuilder()
       .setCustomId(`leave_${msgId}`)
-      .setLabel("🚪 Sair")
+      .setLabel("Sair")
       .setStyle(ButtonStyle.Danger)
-      .setDisabled(eventStarted),
+      .setDisabled(started),
+
     new ButtonBuilder()
       .setCustomId(`ping_${msgId}`)
-      .setLabel("🔔 Ping")
+      .setLabel("Ping")
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(eventStarted)
+      .setDisabled(started)
   );
 
-  let currentRow = new ActionRowBuilder();
-  for (const button of allButtons) {
-    if (currentRow.components.length === 5) {
-      rows.push(currentRow);
-      currentRow = new ActionRowBuilder();
+  let row = new ActionRowBuilder();
+  for (const b of all) {
+    if (row.components.length === 5) {
+      rows.push(row);
+      row = new ActionRowBuilder();
     }
-    currentRow.addComponents(button);
+    row.addComponents(b);
   }
-  if (currentRow.components.length > 0) rows.push(currentRow);
+  if (row.components.length) rows.push(row);
+
   return rows;
 }
 
 /* ======================= READY ======================= */
+
 client.once(Events.ClientReady, async () => {
-  console.log(`Bot online como ${client.user.tag}`);
+  console.log("Bot online!");
   await loadGroups();
+  await limparBotoesAntigos();
 
   const commands = [
     new SlashCommandBuilder()
       .setName("criar")
-      .setDescription("Criar grupo de conteúdo")
-      .addStringOption(o => o.setName("tipo").setDescription("Tipo do conteúdo").setRequired(true))
-      .addIntegerOption(o => o.setName("jogadores").setDescription("Total de jogadores").setRequired(true))
-      .addStringOption(o => o.setName("classes").setDescription("Ex: 1 Tank, 2 Healer, 3 DPS").setRequired(true))
-      .addStringOption(o => o.setName("data").setDescription("DD/MM/AAAA").setRequired(true))
-      .addStringOption(o => o.setName("horario").setDescription("HH:MM UTC-3").setRequired(true))
-      .addStringOption(o => o.setName("descricao").setDescription("Descrição")),
+      .setDescription("Criar grupo")
+      .addStringOption(o => o.setName("tipo").setRequired(true))
+      .addIntegerOption(o => o.setName("jogadores").setRequired(true))
+      .addStringOption(o => o.setName("classes").setRequired(true))
+      .addStringOption(o => o.setName("data").setRequired(true))
+      .addStringOption(o => o.setName("horario").setRequired(true)),
 
     new SlashCommandBuilder()
       .setName("divisao")
-      .setDescription("Calcular divisão de loot")
-      .addIntegerOption(o => o.setName("loot").setDescription("Valor total do loot").setRequired(true))
-      .addIntegerOption(o => o.setName("jogadores").setDescription("Quantidade de jogadores").setRequired(false))
-      .addStringOption(o => o.setName("mencoes").setDescription("Mencione os jogadores (@user1 @user2)").setRequired(false)),
-
-    new SlashCommandBuilder()
-      .setName("editar")
-      .setDescription("Editar um grupo existente")
-      .addStringOption(o => o.setName("msgid").setDescription("ID da mensagem do grupo").setRequired(true))
-      .addStringOption(o => o.setName("titulo").setDescription("Novo título"))
-      .addStringOption(o => o.setName("descricao").setDescription("Nova descrição"))
-      .addIntegerOption(o => o.setName("total").setDescription("Novo total de jogadores"))
-      .addStringOption(o => o.setName("data").setDescription("Nova data (DD/MM/AAAA)"))
-      .addStringOption(o => o.setName("horario").setDescription("Novo horário (HH:MM UTC-3)"))
-      .addStringOption(o => o.setName("classes").setDescription("Novas classes (Ex: 1 Tank, 2 Healer, 3 DPS)"))
+      .setDescription("Dividir loot")
+      .addIntegerOption(o => o.setName("loot").setRequired(true))
+      .addIntegerOption(o => o.setName("jogadores").setRequired(true))
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
@@ -206,14 +191,13 @@ client.once(Events.ClientReady, async () => {
 });
 
 /* ======================= INTERAÇÕES ======================= */
+
 client.on("interactionCreate", async i => {
+
   if (i.isChatInputCommand()) {
 
-    // Criar grupo
     if (i.commandName === "criar") {
       const roles = parseRoles(i.options.getString("classes"));
-      if (!Object.keys(roles).length) return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", ephemeral: true });
-
       const members = {};
       for (const r in roles) members[r] = [];
 
@@ -222,139 +206,94 @@ client.on("interactionCreate", async i => {
         total: i.options.getInteger("jogadores"),
         roles,
         members,
-        description: i.options.getString("descricao") || "Sem descrição",
-        startDate: parseDateTime(i.options.getString("data"), i.options.getString("horario")),
-        creatorId: i.user.id,
+        startDate: parseDateTime(
+          i.options.getString("data"),
+          i.options.getString("horario")
+        ),
         channelId: i.channelId
       };
 
-      const msg = await i.reply({ embeds: [buildEmbed(group)], components: buildButtons(group, "temp"), fetchReply: true });
+      const msg = await i.reply({
+        embeds: [buildEmbed(group)],
+        fetchReply: true
+      });
+
       groups.set(msg.id, group);
       await msg.edit({ components: buildButtons(group, msg.id) });
       await saveGroups();
     }
 
-    // Divisão de loot
     if (i.commandName === "divisao") {
       const loot = i.options.getInteger("loot");
-      let jogadores = i.options.getInteger("jogadores");
-      const mencoes = i.options.getString("mencoes");
-      let listaMencoes = [];
-      let quantidadeMencoes = 0;
-
-      if (mencoes) {
-        const matches = mencoes.match(/<@!?(\d+)>/g);
-        if (matches) { listaMencoes = matches; quantidadeMencoes = matches.length; }
-      }
-
-      if (jogadores && quantidadeMencoes) jogadores = Math.max(jogadores, quantidadeMencoes);
-      else if (!jogadores && quantidadeMencoes) jogadores = quantidadeMencoes;
-
-      if (!jogadores || jogadores <= 0) return i.reply({ content: "❌ Informe a quantidade de jogadores ou mencione participantes!", ephemeral: true });
-
+      const jogadores = i.options.getInteger("jogadores");
       const valor = Math.floor(loot / jogadores);
-      const embed = new EmbedBuilder()
-        .setTitle("💰 Divisão de Loot")
-        .setColor(0x00FF00)
-        .addFields(
-          { name: "💰 Loot Total", value: loot.toLocaleString("pt-BR"), inline: true },
-          { name: "👥 Jogadores", value: jogadores.toString(), inline: true },
-          { name: "💎 Cada jogador recebe", value: valor.toLocaleString("pt-BR"), inline: false }
-        );
-      if (listaMencoes.length) embed.addFields({ name: "👤 Participantes", value: listaMencoes.join(" "), inline: false });
-      return i.reply({ embeds: [embed] });
-    }
 
-    // Editar grupo simplificado
-    if (i.commandName === "editar") {
-      const msgId = i.options.getString("msgid");
-      const group = groups.get(msgId);
-
-      if (!group) return i.reply({ content: "❌ Grupo não encontrado.", ephemeral: true });
-      if (i.user.id !== group.creatorId) return i.reply({ content: "❌ Apenas o criador pode editar.", ephemeral: true });
-
-      const titulo = i.options.getString("titulo");
-      const descricao = i.options.getString("descricao");
-      const total = i.options.getInteger("total");
-      const data = i.options.getString("data");
-      const horario = i.options.getString("horario");
-      const classes = i.options.getString("classes");
-
-      if (titulo) group.title = titulo;
-      if (descricao) group.description = descricao;
-      if (total) group.total = total;
-      if (data && horario) group.startDate = parseDateTime(data, horario);
-      if (classes) {
-        group.roles = parseRoles(classes);
-        for (const key in group.roles) {
-          if (!group.members[key]) group.members[key] = [];
-          if (group.members[key].length > group.roles[key].limit)
-            group.members[key] = group.members[key].slice(0, group.roles[key].limit);
-        }
-      }
-
-      const channel = await client.channels.fetch(group.channelId).catch(() => null);
-      if (!channel) return i.reply({ content: "❌ Canal do grupo não encontrado.", ephemeral: true });
-      const msg = await channel.messages.fetch(msgId).catch(() => null);
-      if (!msg) return i.reply({ content: "❌ Mensagem do grupo não encontrada.", ephemeral: true });
-
-      await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-      await saveGroups();
-      return i.reply({ content: "✅ Grupo atualizado com sucesso!", ephemeral: true });
+      return i.reply(`💰 Cada jogador recebe: ${valor.toLocaleString("pt-BR")}`);
     }
   }
 
-  // Botões
   if (i.isButton()) {
     await i.deferUpdate();
-    const [action, msgId, roleName] = i.customId.split("_");
+
+    const [action, msgId, role] = i.customId.split("_");
     const group = groups.get(msgId);
     if (!group) return;
 
-    const user = i.user;
-    const channel = await client.channels.fetch(i.channelId).catch(() => null);
-    if (!channel) return;
-    const msg = await channel.messages.fetch(msgId).catch(() => null);
-    if (!msg) return;
+    const channel = await client.channels.fetch(i.channelId);
+    const msg = await channel.messages.fetch(msgId);
+
+    if (action === "join") {
+      for (const r in group.members)
+        group.members[r] = group.members[r].filter(id => id !== i.user.id);
+
+      if (group.members[role].length < group.roles[role].limit)
+        group.members[role].push(i.user.id);
+    }
 
     if (action === "leave") {
-      for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
-      await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-      await saveGroups();
+      for (const r in group.members)
+        group.members[r] = group.members[r].filter(id => id !== i.user.id);
     }
 
     if (action === "ping") {
       const mentions = [];
-      for (const r in group.members) group.members[r].forEach(u => mentions.push(`<@${u.id}>`));
+      for (const r in group.members)
+        group.members[r].forEach(id => mentions.push(`<@${id}>`));
+
       if (mentions.length) await channel.send(mentions.join(" "));
     }
 
-    if (action === "join") {
-      for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
-      if (group.members[roleName].length < group.roles[roleName].limit) group.members[roleName].push({ id: user.id });
-      await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-      await saveGroups();
-    }
+    await msg.edit({
+      embeds: [buildEmbed(group)],
+      components: buildButtons(group, msgId)
+    });
+
+    await saveGroups();
   }
 });
 
-/* ======================= ATUALIZAÇÃO PERIÓDICA ======================= */
+/* ======================= ATUALIZAÇÃO ======================= */
+
 setInterval(async () => {
   for (const [msgId, group] of groups.entries()) {
-    const channel = await client.channels.fetch(group.channelId).catch(() => null);
-    if (!channel) continue;
-    const msg = await channel.messages.fetch(msgId).catch(() => null);
-    if (!msg) continue;
-    await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+    try {
+      const channel = await client.channels.fetch(group.channelId);
+      const msg = await channel.messages.fetch(msgId);
+      await msg.edit({
+        embeds: [buildEmbed(group)],
+        components: buildButtons(group, msgId)
+      });
+    } catch {}
   }
-}, 60_000);
+}, 60000);
 
 /* ======================= LOGIN ======================= */
+
 client.login(process.env.DISCORD_TOKEN);
 
-/* ======================= SERVIDOR HTTP MINIMO ======================= */
+/* ======================= HTTP PARA RENDER ======================= */
+
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Bot online!\n");
-}).listen(port, () => console.log(`Servidor web rodando na porta ${port}`));
+  res.end("Bot online");
+}).listen(port);
