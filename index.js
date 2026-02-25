@@ -199,8 +199,6 @@ client.once(Events.ClientReady, async () => {
 
 /* ======================= INTERAÇÕES ======================= */
 client.on("interactionCreate", async i => {
-
-  // ===== CRIAR =====
   if (i.isChatInputCommand() && i.commandName === "criar") {
     const roles = parseRoles(i.options.getString("classes"));
     if (!Object.keys(roles).length) return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", flags: 64 });
@@ -225,13 +223,13 @@ client.on("interactionCreate", async i => {
     await saveGroups();
   }
 
-  // ===== DIVISÃO =====
+  // Divisão
   if (i.isChatInputCommand() && i.commandName === "divisao") {
     let loot = i.options.getInteger("loot");
     let jogadores = i.options.getInteger("jogadores");
     const mencoes = i.options.getString("mencoes");
-
     let listaMencoes = [];
+
     if (mencoes) {
       const matches = mencoes.match(/<@!?(\d+)>/g);
       if (matches) listaMencoes = matches;
@@ -259,9 +257,9 @@ client.on("interactionCreate", async i => {
     return i.reply({ embeds: [embed], flags: 64 });
   }
 
-  // ===== BOTÕES =====
+  // Botões
   if (i.isButton()) {
-    await i.deferUpdate(); // evita evento expirado
+    await i.deferUpdate();
     const [action, msgId, roleName] = i.customId.split("_");
     const group = groups.get(msgId);
     if (!group) return;
@@ -285,46 +283,50 @@ client.on("interactionCreate", async i => {
     if (action === "edit") {
       if (i.user.id !== group.creatorId) return;
       const dm = await i.user.createDM();
-      await dm.send("Vamos editar seu grupo! Responda cada pergunta abaixo:");
-
       const questions = [
-        { key: "title", text: "Novo título do grupo?" },
-        { key: "description", text: "Nova descrição?" },
-        { key: "date", text: "Nova data (DD/MM/AAAA)?" },
-        { key: "time", text: "Novo horário (HH:MM UTC-3)?" },
-        { key: "total", text: "Novo total de jogadores?" },
-        { key: "classes", text: "Novas classes (Ex: 1 Tank, 2 Healer, 3 DPS)?" }
+        { key: "title", text: "Qual é o **novo título** do grupo?" },
+        { key: "description", text: "Qual é a **nova descrição** do grupo?" },
+        { key: "date", text: "Qual é a **nova data** do grupo (DD/MM/AAAA)?" },
+        { key: "time", text: "Qual é o **novo horário** do grupo (HH:MM UTC-3)?" },
+        { key: "total", text: "Qual é o **novo total de jogadores**?" },
+        { key: "classes", text: "Quais são as **novas classes** (Ex: 1 Tank, 2 Healer, 3 DPS)?" }
       ];
 
       let step = 0;
-      const dmListener = async msg => {
-        if (msg.author.id !== i.user.id) return;
+      await dm.send(questions[step].text);
 
-        group[questions[step].key] = msg.content;
+      const collector = dm.createMessageCollector({
+        filter: msg => msg.author.id === i.user.id,
+        time: 300_000
+      });
+
+      collector.on("collect", async msg => {
+        const answer = msg.content.trim();
+        const q = questions[step];
+
+        if (q.key === "total") group.total = parseInt(answer) || group.total;
+        else if (q.key === "classes") group.roles = parseRoles(answer);
+        else group[q.key] = answer;
+
         step++;
+        if (step < questions.length) await dm.send(questions[step].text);
+        else collector.stop("finalizado");
+      });
 
-        if (step < questions.length) {
-          await dm.send(questions[step].text);
-        } else {
-          client.off("messageCreate", dmListener);
-          group.startDate = parseDateTime(group.date, group.time);
-          group.total = parseInt(group.total);
-          group.roles = parseRoles(group.classes);
+      collector.on("end", async (collected, reason) => {
+        if (reason !== "finalizado") return dm.send("⏰ Tempo esgotado! Tente editar novamente.");
+        group.startDate = parseDateTime(group.date, group.time);
 
-          for (const key in group.roles) {
-            if (!group.members[key]) group.members[key] = [];
-            if (group.members[key].length > group.roles[key].limit)
-              group.members[key] = group.members[key].slice(0, group.roles[key].limit);
-          }
-
-          await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
-          await saveGroups();
-          await dm.send("✅ Grupo atualizado com sucesso!");
+        for (const key in group.roles) {
+          if (!group.members[key]) group.members[key] = [];
+          if (group.members[key].length > group.roles[key].limit)
+            group.members[key] = group.members[key].slice(0, group.roles[key].limit);
         }
-      };
 
-      client.on("messageCreate", dmListener);
-      await dm.send(questions[step].text); // primeira pergunta
+        await msg.edit({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
+        await saveGroups();
+        await dm.send("✅ Grupo atualizado com sucesso!");
+      });
     }
 
     if (action === "join") {
@@ -338,7 +340,6 @@ client.on("interactionCreate", async i => {
 
 /* ======================= ATUALIZAÇÃO PERIÓDICA ======================= */
 setInterval(async () => {
-  const now = new Date();
   for (const [msgId, group] of groups.entries()) {
     const channel = await client.channels.fetch(group.channelId).catch(() => null);
     if (!channel) continue;
