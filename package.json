@@ -13,6 +13,7 @@
     "discord-player-youtubei": "^1.3.0",
     "play-dl": "^1.9.7",
     "dotenv": "^16.4.5",
-    "fs-extra": "^11.2.0"
+    "fs-extra": "^11.2.0",
+    "luxon": "^3.14.0"
   }
 }
