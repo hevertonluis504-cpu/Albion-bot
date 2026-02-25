@@ -15,8 +15,8 @@ const {
 } = require("discord.js");
 
 const { Player } = require("discord-player");
-const Youtubei = require("discord-player-youtubei").default;
 
+// ================= CLIENT =================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -35,8 +35,8 @@ if (fs.existsSync(path)) {
 client.once("clientReady", async () => {
   console.log(`✅ Bot online como ${client.user.tag}`);
 
+  // Carrega extractors padrão (vai usar play-dl automaticamente)
   await player.extractors.loadDefault();
-  await player.extractors.register(Youtubei);
 
   const commands = [
     new SlashCommandBuilder()
@@ -81,7 +81,7 @@ client.on("interactionCreate", async (interaction) => {
   // ===== COMANDOS =====
   if (interaction.isChatInputCommand()) {
 
-    // CRIAR GRUPO
+    // ===== CRIAR =====
     if (interaction.commandName === "criar") {
 
       const tipo = interaction.options.getString("tipo");
@@ -120,7 +120,7 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.reply({ embeds: [embed], components: [row] });
     }
 
-    // DIVISAO
+    // ===== DIVISAO =====
     if (interaction.commandName === "divisao") {
 
       const valor = interaction.options.getInteger("valor");
@@ -143,7 +143,7 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.reply({ embeds: [embed] });
     }
 
-    // TOCAR
+    // ===== TOCAR =====
     if (interaction.commandName === "tocar") {
 
       await interaction.deferReply();
@@ -156,7 +156,8 @@ client.on("interactionCreate", async (interaction) => {
       try {
         const { track } = await player.play(canal, musica);
         interaction.editReply(`🎵 Tocando: ${track.title}`);
-      } catch {
+      } catch (err) {
+        console.log(err);
         interaction.editReply("❌ Erro ao tocar música.");
       }
     }
