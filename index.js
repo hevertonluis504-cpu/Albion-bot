@@ -16,7 +16,6 @@ const {
   TextInputBuilder,
   TextInputStyle
 } = require("discord.js");
-const { DateTime, Interval } = require("luxon");
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const groups = new Map();
@@ -70,26 +69,15 @@ function parseRoles(input) {
 function parseDateTime(dateStr, timeStr) {
   const [d, m, y] = dateStr.split("/").map(Number);
   const [h, min] = timeStr.split(":").map(Number);
-  return DateTime.fromObject(
-    { year: y, month: m, day: d, hour: h, minute: min },
-    { zone: "America/Sao_Paulo" }
-  ).toJSDate();
+  return new Date(y, m - 1, d, h, min);
 }
 
 function formatDate(d) {
-  return DateTime.fromJSDate(d).setZone("America/Sao_Paulo").toFormat("dd/LL/yyyy");
+  return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
 function formatTime(d) {
-  return DateTime.fromJSDate(d).setZone("America/Sao_Paulo").toFormat("HH:mm");
-}
-
-function getTimeRemaining(d) {
-  const now = DateTime.now().setZone("America/Sao_Paulo");
-  const eventTime = DateTime.fromJSDate(d).setZone("America/Sao_Paulo");
-  if (eventTime <= now) return "✅ O evento já começou!";
-  const diff = Interval.fromDateTimes(now, eventTime).toDuration(["days","hours","minutes"]).toObject();
-  return `${diff.days || 0}d ${diff.hours || 0}h ${diff.minutes || 0}m`;
+  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 }
 
 /* ======================= EMBED ======================= */
@@ -100,14 +88,13 @@ function buildEmbed(group) {
     .setDescription(
       `📅 Data: ${formatDate(group.startDate)}\n` +
       `🕒 Horário: ${formatTime(group.startDate)} UTC-3\n` +
-      `⏳ Tempo restante: ${getTimeRemaining(group.startDate)}\n` +
       `📝 ${group.description}\n\n` +
       `👥 Total: ${group.total}`
     );
 
   for (const key in group.roles) {
     const role = group.roles[key];
-    const members = group.members[key]?.map(u => u.username || `<@${u.id}>`).join("\n") || "—";
+    const members = group.members[key]?.map(u => `<@${u.id}>`).join("\n") || "—";
     embed.addFields({
       name: `${getEmoji(role.name)} ${role.name} (${group.members[key].length}/${role.limit})`,
       value: members,
@@ -118,50 +105,43 @@ function buildEmbed(group) {
 }
 
 /* ======================= BOTÕES ======================= */
-function buildButtons(group, page = 0) {
+function buildButtons(group, msgId) {
   const rows = [];
-  const roleKeys = Object.keys(group.roles);
-  const pageSize = 5;
-  const start = page * pageSize;
-  const end = start + pageSize;
+  const allButtons = [];
 
-  // Botões de roles
-  const roleRow = new ActionRowBuilder();
-  roleKeys.slice(start, end).forEach(key => {
-    roleRow.addComponents(
+  for (const key in group.roles) {
+    allButtons.push(
       new ButtonBuilder()
-        .setCustomId("join_" + key)
+        .setCustomId(`join_${msgId}_${key}`)
         .setLabel(`${getEmoji(group.roles[key].name)} ${group.roles[key].name}`)
         .setStyle(ButtonStyle.Primary)
     );
-  });
-  rows.push(roleRow);
-
-  // Navegação
-  if (roleKeys.length > pageSize) {
-    const navRow = new ActionRowBuilder();
-    if (page > 0)
-      navRow.addComponents(new ButtonBuilder()
-        .setCustomId(`prevPage_${page - 1}`)
-        .setLabel("⬅️ Anterior")
-        .setStyle(ButtonStyle.Secondary));
-    if (end < roleKeys.length)
-      navRow.addComponents(new ButtonBuilder()
-        .setCustomId(`nextPage_${page + 1}`)
-        .setLabel("➡️ Próxima")
-        .setStyle(ButtonStyle.Secondary));
-    rows.push(navRow);
   }
 
-  // Botões gerais
-  const generalRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("leave").setLabel("🚪 Sair").setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId("ping_all").setLabel("🔔 Ping").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("edit_group").setLabel("📝 Editar").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("time_remaining").setLabel("⏳ Tempo restante").setStyle(ButtonStyle.Secondary)
+  allButtons.push(
+    new ButtonBuilder()
+      .setCustomId(`leave_${msgId}`)
+      .setLabel("🚪 Sair")
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(`ping_all_${msgId}`)
+      .setLabel("🔔 Ping")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`edit_group_${msgId}`)
+      .setLabel("📝 Editar")
+      .setStyle(ButtonStyle.Secondary)
   );
-  rows.push(generalRow);
 
+  let currentRow = new ActionRowBuilder();
+  for (const button of allButtons) {
+    if (currentRow.components.length === 5) {
+      rows.push(currentRow);
+      currentRow = new ActionRowBuilder();
+    }
+    currentRow.addComponents(button);
+  }
+  if (currentRow.components.length > 0) rows.push(currentRow);
   return rows;
 }
 
@@ -198,8 +178,7 @@ client.on("interactionCreate", async i => {
   // ===== CRIAR =====
   if (i.isChatInputCommand() && i.commandName === "criar") {
     const roles = parseRoles(i.options.getString("classes"));
-    if (!Object.keys(roles).length)
-      return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", flags: 64 });
+    if (!Object.keys(roles).length) return i.reply({ content: "Formato inválido. Use: 1 Tank, 2 Healer", flags: 64 });
 
     const members = {};
     for (const r in roles) members[r] = [];
@@ -211,23 +190,20 @@ client.on("interactionCreate", async i => {
       members,
       description: i.options.getString("descricao") || "Sem descrição",
       startDate: parseDateTime(i.options.getString("data"), i.options.getString("horario")),
-      creatorId: i.user.id,
-      page: 0
+      creatorId: i.user.id
     };
 
-    const msg = await i.reply({
-      embeds: [buildEmbed(group)],
-      components: buildButtons(group),
-      withResponse: true
-    });
+    const msg = await i.reply({ embeds: [buildEmbed(group)], components: buildButtons(group, "temp"), withResponse: true });
 
     groups.set(msg.id, group);
+    // Atualiza os botões com ID real da mensagem
+    await i.editReply({ components: buildButtons(group, msg.id) });
     await saveGroups();
   }
 
   // ===== DIVISÃO =====
   if (i.isChatInputCommand() && i.commandName === "divisao") {
-    const loot = i.options.getInteger("loot");
+    let loot = i.options.getInteger("loot");
     let jogadores = i.options.getInteger("jogadores");
     const mencoes = i.options.getString("mencoes");
 
@@ -239,9 +215,7 @@ client.on("interactionCreate", async i => {
 
     if (jogadores && listaMencoes.length) jogadores = Math.max(jogadores, listaMencoes.length);
     else if (!jogadores && listaMencoes.length) jogadores = listaMencoes.length;
-
-    if (!jogadores || jogadores <= 0)
-      return i.reply({ content: "❌ Informe a quantidade de jogadores ou mencione participantes!", flags: 64 });
+    if (!jogadores || jogadores <= 0) return i.reply({ content: "❌ Informe a quantidade de jogadores ou mencione participantes!", flags: 64 });
 
     const valor = Math.floor(loot / jogadores);
     const sobra = loot % jogadores;
@@ -263,110 +237,74 @@ client.on("interactionCreate", async i => {
 
   // ===== BOTÕES =====
   if (i.isButton()) {
-    const group = groups.get(i.message.id);
+    const [action, msgId, roleName] = i.customId.split("_");
+    const group = groups.get(msgId);
     if (!group) return i.reply({ content: "Evento expirado.", flags: 64 });
     const user = i.user;
 
-    // PAGINAÇÃO
-    if (i.customId.startsWith("nextPage_") || i.customId.startsWith("prevPage_")) {
-      group.page = parseInt(i.customId.split("_")[1]);
-      await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, group.page) });
-      return;
-    }
-
-    // SAIR
-    if (i.customId === "leave") {
+    if (action === "leave") {
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
-      await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, group.page) });
+      await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
       await saveGroups();
       return;
     }
 
-    // PING
-    if (i.customId === "ping_all") {
+    if (action === "ping") {
       const mentions = [];
       for (const r in group.members) group.members[r].forEach(u => mentions.push(`<@${u.id}>`));
       if (!mentions.length) return i.reply({ content: "Ninguém no grupo.", flags: 64 });
       return i.reply({ content: mentions.join(" "), flags: 64 });
     }
 
-    // TEMPO RESTANTE
-    if (i.customId === "time_remaining") {
-      return i.reply({ content: `⏳ Tempo restante: ${getTimeRemaining(group.startDate)}`, flags: 64 });
-    }
+    if (action === "edit") {
+      if (i.user.id !== group.creatorId) return i.reply({ content: "❌ Apenas o criador pode editar este grupo.", flags: 64 });
 
-    // EDITAR
-    if (i.customId === "edit_group") {
-      if (i.user.id !== group.creatorId)
-        return i.reply({ content: "❌ Apenas o criador pode editar este grupo.", flags: 64 });
+      const modal = new ModalBuilder().setCustomId(`editGroup_${msgId}`).setTitle("Editar Grupo");
 
-      const modal = new ModalBuilder()
-        .setCustomId(`editGroup_${i.message.id}`)
-        .setTitle("Editar Grupo");
-
-      const titleInput = new TextInputBuilder()
-        .setCustomId("newTitle")
-        .setLabel("Título")
-        .setStyle(TextInputStyle.Short)
-        .setValue(group.title)
-        .setRequired(true);
-
-      const descInput = new TextInputBuilder()
-        .setCustomId("newDesc")
-        .setLabel("Descrição")
-        .setStyle(TextInputStyle.Paragraph)
-        .setValue(group.description)
-        .setRequired(false);
-
-      const dateInput = new TextInputBuilder()
-        .setCustomId("newDate")
-        .setLabel("Data (DD/MM/AAAA)")
-        .setStyle(TextInputStyle.Short)
-        .setValue(formatDate(group.startDate))
-        .setRequired(true);
-
-      const timeInput = new TextInputBuilder()
-        .setCustomId("newTime")
-        .setLabel("Horário (HH:MM UTC-3)")
-        .setStyle(TextInputStyle.Short)
-        .setValue(formatTime(group.startDate))
-        .setRequired(true);
+      const titleInput = new TextInputBuilder().setCustomId("newTitle").setLabel("Título").setStyle(TextInputStyle.Short).setValue(group.title).setRequired(true);
+      const descInput = new TextInputBuilder().setCustomId("newDesc").setLabel("Descrição").setStyle(TextInputStyle.Paragraph).setValue(group.description).setRequired(false);
+      const dateInput = new TextInputBuilder().setCustomId("newDate").setLabel("Data (DD/MM/AAAA)").setStyle(TextInputStyle.Short).setValue(formatDate(group.startDate)).setRequired(true);
+      const timeInput = new TextInputBuilder().setCustomId("newTime").setLabel("Horário (HH:MM UTC-3)").setStyle(TextInputStyle.Short).setValue(formatTime(group.startDate)).setRequired(true);
+      const totalInput = new TextInputBuilder().setCustomId("newTotal").setLabel("Total de jogadores").setStyle(TextInputStyle.Short).setValue(group.total.toString()).setRequired(true);
+      const classesInput = new TextInputBuilder().setCustomId("newClasses").setLabel("Classes (Ex: 1 Tank, 2 Healer, 3 DPS)").setStyle(TextInputStyle.Paragraph).setValue(Object.keys(group.roles).map(k => `${group.roles[k].limit} ${group.roles[k].name}`).join(", ")).setRequired(true);
 
       modal.addComponents(new ActionRowBuilder().addComponents(titleInput));
       modal.addComponents(new ActionRowBuilder().addComponents(descInput));
       modal.addComponents(new ActionRowBuilder().addComponents(dateInput));
       modal.addComponents(new ActionRowBuilder().addComponents(timeInput));
+      modal.addComponents(new ActionRowBuilder().addComponents(totalInput));
+      modal.addComponents(new ActionRowBuilder().addComponents(classesInput));
 
       return i.showModal(modal);
     }
 
-    // JOIN
-    if (i.customId.startsWith("join_")) {
-      const role = i.customId.replace("join_", "");
+    if (action === "join") {
       for (const r in group.members) group.members[r] = group.members[r].filter(u => u.id !== user.id);
-      if (group.members[role].length >= group.roles[role].limit)
-        return i.reply({ content: "Classe cheia.", flags: 64 });
-
-      group.members[role].push({ id: user.id, username: user.tag });
-      await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, group.page) });
+      if (group.members[roleName].length >= group.roles[roleName].limit) return i.reply({ content: "Classe cheia.", flags: 64 });
+      group.members[roleName].push({ id: user.id, username: user.tag });
+      await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
       await saveGroups();
     }
   }
 
   // ===== MODAL SUBMIT =====
   if (i.isModalSubmit() && i.customId.startsWith("editGroup_")) {
-    const messageId = i.customId.split("_")[1];
-    const group = groups.get(messageId);
+    const msgId = i.customId.split("_")[1];
+    const group = groups.get(msgId);
     if (!group) return i.reply({ content: "Grupo não encontrado.", flags: 64 });
 
     group.title = i.fields.getTextInputValue("newTitle");
     group.description = i.fields.getTextInputValue("newDesc");
+    group.startDate = parseDateTime(i.fields.getTextInputValue("newDate"), i.fields.getTextInputValue("newTime"));
+    group.total = parseInt(i.fields.getTextInputValue("newTotal"));
+    group.roles = parseRoles(i.fields.getTextInputValue("newClasses"));
 
-    const newDate = i.fields.getTextInputValue("newDate");
-    const newTime = i.fields.getTextInputValue("newTime");
-    group.startDate = parseDateTime(newDate, newTime);
+    for (const key in group.roles) {
+      if (!group.members[key]) group.members[key] = [];
+      if (group.members[key].length > group.roles[key].limit) group.members[key] = group.members[key].slice(0, group.roles[key].limit);
+    }
 
-    await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, group.page) });
+    await i.update({ embeds: [buildEmbed(group)], components: buildButtons(group, msgId) });
     await saveGroups();
   }
 });
