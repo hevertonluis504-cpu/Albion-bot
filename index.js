@@ -246,38 +246,38 @@ client.once(Events.ClientReady, async () => {
 
   const commands = [
     new SlashCommandBuilder()
-      .setName("criar")
-      .setDescription("Criar evento de grupo")
-      .addStringOption(o =>
-        o.setName("tipo")
-          .setDescription("Tipo do evento")
-          .setRequired(true)
-      )
-      .addIntegerOption(o =>
-        o.setName("jogadores")
-          .setDescription("Total de jogadores")
-          .setRequired(true)
-      )
-      .addStringOption(o =>
-        o.setName("classes")
-          .setDescription("Ex: 1 Tank, 1 Healer, 3 DPS")
-          .setRequired(true)
-      )
-      .addStringOption(o =>
-        o.setName("data")
-          .setDescription("DD/MM/AAAA")
-          .setRequired(true)
-      )
-      .addStringOption(o =>
-        o.setName("horario")
-          .setDescription("HH:MM")
-          .setRequired(true)
-      ),
-      .addStringOption(o =>
-  o.setName("descricao")
-    .setDescription("Descrição do evento")
-    .setRequired(false)
-)
+  .setName("criar")
+  .setDescription("Criar evento de grupo")
+  .addStringOption(o =>
+    o.setName("tipo")
+      .setDescription("Tipo do evento")
+      .setRequired(true)
+  )
+  .addIntegerOption(o =>
+    o.setName("jogadores")
+      .setDescription("Total de jogadores")
+      .setRequired(true)
+  )
+  .addStringOption(o =>
+    o.setName("classes")
+      .setDescription("Ex: 1 Tank, 1 Healer, 3 DPS")
+      .setRequired(true)
+  )
+  .addStringOption(o =>
+    o.setName("data")
+      .setDescription("DD/MM/AAAA")
+      .setRequired(true)
+  )
+  .addStringOption(o =>
+    o.setName("horario")
+      .setDescription("HH:MM")
+      .setRequired(true)
+  )
+  .addStringOption(o =>
+    o.setName("descricao")
+      .setDescription("Descrição do evento")
+      .setRequired(false)
+  ),
     new SlashCommandBuilder()
       .setName("ranking")
       .setDescription("Ver ranking da guilda")
