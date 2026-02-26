@@ -97,6 +97,7 @@ function buildEmbed(group) {
     );
 
   const diff = group.startDate - now;
+
   if (diff > 0) {
     const h = Math.floor(diff / 1000 / 60 / 60);
     const m = Math.floor((diff / 1000 / 60) % 60);
@@ -108,6 +109,7 @@ function buildEmbed(group) {
   for (const r in group.roles) {
     const role = group.roles[r];
     const members = group.members[r]?.map(u => `<@${u}>`).join("\n") || "—";
+
     embed.addFields({
       name: `${role.name} (${group.members[r].length}/${role.limit})`,
       value: members,
@@ -157,6 +159,7 @@ function buildButtons(group, msgId) {
     }
     row.addComponents(b);
   }
+
   if (row.components.length) rows.push(row);
 
   return rows;
@@ -173,21 +176,61 @@ client.once(Events.ClientReady, async () => {
     new SlashCommandBuilder()
       .setName("criar")
       .setDescription("Criar grupo")
-      .addStringOption(o => o.setName("tipo").setRequired(true))
-      .addIntegerOption(o => o.setName("jogadores").setRequired(true))
-      .addStringOption(o => o.setName("classes").setRequired(true))
-      .addStringOption(o => o.setName("data").setRequired(true))
-      .addStringOption(o => o.setName("horario").setRequired(true)),
+
+      .addStringOption(o =>
+        o.setName("tipo")
+          .setDescription("Tipo do grupo (ex: DG, Ava, HCE)")
+          .setRequired(true)
+      )
+
+      .addIntegerOption(o =>
+        o.setName("jogadores")
+          .setDescription("Quantidade total de jogadores")
+          .setRequired(true)
+      )
+
+      .addStringOption(o =>
+        o.setName("classes")
+          .setDescription("Ex: 1 Tank, 1 Healer, 3 DPS")
+          .setRequired(true)
+      )
+
+      .addStringOption(o =>
+        o.setName("data")
+          .setDescription("Data no formato DD/MM/AAAA")
+          .setRequired(true)
+      )
+
+      .addStringOption(o =>
+        o.setName("horario")
+          .setDescription("Horário no formato HH:MM")
+          .setRequired(true)
+      ),
 
     new SlashCommandBuilder()
       .setName("divisao")
       .setDescription("Dividir loot")
-      .addIntegerOption(o => o.setName("loot").setRequired(true))
-      .addIntegerOption(o => o.setName("jogadores").setRequired(true))
+
+      .addIntegerOption(o =>
+        o.setName("loot")
+          .setDescription("Valor total do loot")
+          .setRequired(true)
+      )
+
+      .addIntegerOption(o =>
+        o.setName("jogadores")
+          .setDescription("Quantidade de jogadores")
+          .setRequired(true)
+      )
+
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+
+  await rest.put(
+    Routes.applicationCommands(client.user.id),
+    { body: commands }
+  );
 });
 
 /* ======================= INTERAÇÕES ======================= */
