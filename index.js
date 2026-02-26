@@ -83,10 +83,11 @@ async function loadGroups() {
 
 /* ======================= VALIDAÇÕES ======================= */
 
-function isValidDate(dateStr, timeStr) {
+function createBrazilDate(dateStr, timeStr) {
   const [d, m, y] = dateStr.split("/").map(Number);
   const [h, min] = timeStr.split(":").map(Number);
-  const date = new Date(y, m - 1, d, h, min);
+
+  const date = new Date(Date.UTC(y, m - 1, d, h + 3, min));
 
   if (isNaN(date.getTime())) return false;
   if (date < new Date()) return false;
@@ -125,11 +126,30 @@ function formatTime(d) {
 
 /* ======================= EMBED PROFISSIONAL ======================= */
 
+function getRoleEmoji(name) {
+  const n = name.toLowerCase();
+
+  if (n.includes("tank")) return "🛡️";
+  if (n.includes("heal")) return "💚";
+  if (n.includes("dps")) return "⚔️";
+  if (n.includes("arc")) return "🏹";
+  if (n.includes("debuff")) return "🌀";
+  if (n.includes("suporte")) return "✨";
+
+  return "🔹";
+}
+
+function progressBar(current, total) {
+  const filled = "🟢".repeat(current);
+  const empty = "⚪".repeat(Math.max(total - current, 0));
+  return filled + empty;
+}
+
 function buildEmbed(group) {
   const now = new Date();
   const diff = group.startDate - now;
 
-  let color = 0x3498db; // azul
+  let color = 0x3498db;
   let status = "Aberto";
 
   if (group.closed) {
@@ -147,18 +167,25 @@ function buildEmbed(group) {
     .setTitle(`⚔️ ${group.title}`)
     .setColor(color)
     .setDescription(
-      `📅 ${formatDate(group.startDate)}\n` +
-      `🕒 ${formatTime(group.startDate)} UTC-3\n\n` +
+      `📅 <t:${Math.floor(group.startDate.getTime() / 1000)}:F>\n` +
+      `⏳ <t:${Math.floor(group.startDate.getTime() / 1000)}:R>\n\n` +
       `👥 Total: ${group.total}\n` +
       `📌 Status: ${status}`
-    );
+    )
+    .setFooter({ text: "Sistema Guild PRO" });
 
   for (const r in group.roles) {
     const role = group.roles[r];
-    const members = group.members[r]?.map(u => `<@${u}>`).join("\n") || "—";
+    const membersList = group.members[r] || [];
+    const emoji = getRoleEmoji(role.name);
+
     embed.addFields({
-      name: `${role.name} (${group.members[r].length}/${role.limit})`,
-      value: members,
+      name: `${emoji} ${role.name}`,
+      value:
+        `${progressBar(membersList.length, role.limit)} (${membersList.length}/${role.limit})\n\n` +
+        (membersList.length
+          ? membersList.map(u => `<@${u}>`).join("\n")
+          : "—"),
       inline: true
     });
   }
@@ -267,7 +294,7 @@ client.on("interactionCreate", async i => {
       if (parsed.total !== i.options.getInteger("jogadores"))
         return i.reply({ content: "❌ Soma das classes diferente do total.", ephemeral: true });
 
-      const validDate = isValidDate(
+      const validDate = createBrazilDate(
         i.options.getString("data"),
         i.options.getString("horario")
       );
