@@ -274,7 +274,7 @@ client.once(Events.ClientReady, async () => {
           .setRequired(true)
       ),
       .addStringOption(o =>
-       o.setName("descricao")
+  o.setName("descricao")
     .setDescription("Descrição do evento")
     .setRequired(false)
 )
