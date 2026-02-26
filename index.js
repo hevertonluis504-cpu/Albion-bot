@@ -1,7 +1,9 @@
 require("dotenv").config();
 const fs = require("fs").promises;
 const http = require("http");
-const {
+const axios = require("axios");
+
+const{
   Client,
   GatewayIntentBits,
   ActionRowBuilder,
@@ -15,6 +17,11 @@ const {
   ChannelType,
   PermissionFlagsBits
 } = require("discord.js");
+
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const REPO_OWNER = "hevertonluis504-cpu";
+const REPO_NAME = "Albion-bot";
+const FILE_PATH = "ranking.json";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
