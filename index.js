@@ -11,7 +11,9 @@ const {
   REST,
   Routes,
   SlashCommandBuilder,
-  Events
+  Events,
+  ChannelType,
+  PermissionFlagsBits
 } = require("discord.js");
 
 const client = new Client({
@@ -19,6 +21,48 @@ const client = new Client({
 });
 
 const groups = new Map();
+const rankingFile = "./ranking.json";
+
+/* ======================= RANKING ======================= */
+
+async function loadRanking() {
+  try {
+    return JSON.parse(await fs.readFile(rankingFile, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+async function saveRanking(data) {
+  await fs.writeFile(rankingFile, JSON.stringify(data, null, 2));
+}
+
+async function addPoints(users) {
+  const ranking = await loadRanking();
+  for (const id of users) {
+    ranking[id] = (ranking[id] || 0) + 1;
+  }
+  await saveRanking(ranking);
+}
+
+/* ======================= LOGS ======================= */
+
+async function getLogChannel(guild) {
+  let channel = guild.channels.cache.find(c => c.name === "logs-bot");
+  if (!channel) {
+    channel = await guild.channels.create({
+      name: "logs-bot",
+      type: ChannelType.GuildText,
+      permissionOverwrites: [
+        {
+          id: guild.roles.everyone,
+          allow: [PermissionFlagsBits.ViewChannel],
+        }
+      ]
+    });
+  }
+  return channel;
+}
 
 /* ======================= SALVAR / CARREGAR ======================= */
 
@@ -37,38 +81,34 @@ async function loadGroups() {
   } catch {}
 }
 
-/* ======================= LIMPAR BOTÕES ANTIGOS ======================= */
+/* ======================= VALIDAÇÕES ======================= */
 
-async function limparBotoesAntigos() {
-  for (const [msgId, group] of groups.entries()) {
-    try {
-      const channel = await client.channels.fetch(group.channelId);
-      const msg = await channel.messages.fetch(msgId);
-      await msg.edit({ components: [] });
-    } catch {}
-  }
+function isValidDate(dateStr, timeStr) {
+  const [d, m, y] = dateStr.split("/").map(Number);
+  const [h, min] = timeStr.split(":").map(Number);
+  const date = new Date(y, m - 1, d, h, min);
+
+  if (isNaN(date.getTime())) return false;
+  if (date < new Date()) return false;
+
+  return date;
 }
-
-/* ======================= UTIL ======================= */
 
 function parseRoles(input) {
   const roles = {};
+  let total = 0;
+
   input.split(",").forEach(p => {
     const match = p.trim().match(/^(\d+)\s+(.+)$/);
     if (match) {
-      roles[match[2]] = {
-        name: match[2],
-        limit: parseInt(match[1])
-      };
+      const qty = parseInt(match[1]);
+      const name = match[2];
+      roles[name] = { name, limit: qty };
+      total += qty;
     }
   });
-  return roles;
-}
 
-function parseDateTime(dateStr, timeStr) {
-  const [d, m, y] = dateStr.split("/").map(Number);
-  const [h, min] = timeStr.split(":").map(Number);
-  return new Date(y, m - 1, d, h, min);
+  return { roles, total };
 }
 
 function formatDate(d) {
@@ -83,33 +123,39 @@ function formatTime(d) {
   });
 }
 
-/* ======================= EMBED ======================= */
+/* ======================= EMBED PROFISSIONAL ======================= */
 
 function buildEmbed(group) {
   const now = new Date();
+  const diff = group.startDate - now;
+
+  let color = 0x3498db; // azul
+  let status = "Aberto";
+
+  if (group.closed) {
+    color = 0xe74c3c;
+    status = "Encerrado";
+  } else if (diff <= 0) {
+    color = 0x2ecc71;
+    status = "Iniciado";
+  } else if (diff <= 10 * 60 * 1000) {
+    color = 0xf1c40f;
+    status = "Começando em breve";
+  }
+
   const embed = new EmbedBuilder()
     .setTitle(`⚔️ ${group.title}`)
-    .setColor(0x5865F2)
+    .setColor(color)
     .setDescription(
       `📅 ${formatDate(group.startDate)}\n` +
       `🕒 ${formatTime(group.startDate)} UTC-3\n\n` +
-      `👥 Total: ${group.total}`
+      `👥 Total: ${group.total}\n` +
+      `📌 Status: ${status}`
     );
-
-  const diff = group.startDate - now;
-
-  if (diff > 0) {
-    const h = Math.floor(diff / 1000 / 60 / 60);
-    const m = Math.floor((diff / 1000 / 60) % 60);
-    embed.addFields({ name: "⏳ Começa em", value: `${h}h ${m}m` });
-  } else {
-    embed.addFields({ name: "✅ Status", value: "Evento iniciado!" });
-  }
 
   for (const r in group.roles) {
     const role = group.roles[r];
     const members = group.members[r]?.map(u => `<@${u}>`).join("\n") || "—";
-
     embed.addFields({
       name: `${role.name} (${group.members[r].length}/${role.limit})`,
       value: members,
@@ -119,10 +165,11 @@ function buildEmbed(group) {
 
   return embed;
 }
-
 /* ======================= BOTÕES ======================= */
 
 function buildButtons(group, msgId) {
+  if (group.closed) return [];
+
   const rows = [];
   const all = [];
   const started = group.startDate <= new Date();
@@ -145,10 +192,9 @@ function buildButtons(group, msgId) {
       .setDisabled(started),
 
     new ButtonBuilder()
-      .setCustomId(`ping_${msgId}`)
-      .setLabel("Ping")
+      .setCustomId(`close_${msgId}`)
+      .setLabel("Encerrar Evento")
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(started)
   );
 
   let row = new ActionRowBuilder();
@@ -161,76 +207,52 @@ function buildButtons(group, msgId) {
   }
 
   if (row.components.length) rows.push(row);
-
   return rows;
 }
 
 /* ======================= READY ======================= */
 
 client.once(Events.ClientReady, async () => {
-  console.log("Bot online!");
+  console.log("Bot PRO online!");
   await loadGroups();
-  await limparBotoesAntigos();
 
   const commands = [
     new SlashCommandBuilder()
       .setName("criar")
-      .setDescription("Criar grupo")
-
+      .setDescription("Criar evento de grupo")
       .addStringOption(o =>
         o.setName("tipo")
-          .setDescription("Tipo do grupo (ex: DG, Ava, HCE)")
+          .setDescription("Tipo do evento")
           .setRequired(true)
       )
-
       .addIntegerOption(o =>
         o.setName("jogadores")
-          .setDescription("Quantidade total de jogadores")
+          .setDescription("Total de jogadores")
           .setRequired(true)
       )
-
       .addStringOption(o =>
         o.setName("classes")
           .setDescription("Ex: 1 Tank, 1 Healer, 3 DPS")
           .setRequired(true)
       )
-
       .addStringOption(o =>
         o.setName("data")
-          .setDescription("Data no formato DD/MM/AAAA")
+          .setDescription("DD/MM/AAAA")
           .setRequired(true)
       )
-
       .addStringOption(o =>
         o.setName("horario")
-          .setDescription("Horário no formato HH:MM")
+          .setDescription("HH:MM")
           .setRequired(true)
       ),
 
     new SlashCommandBuilder()
-      .setName("divisao")
-      .setDescription("Dividir loot")
-
-      .addIntegerOption(o =>
-        o.setName("loot")
-          .setDescription("Valor total do loot")
-          .setRequired(true)
-      )
-
-      .addIntegerOption(o =>
-        o.setName("jogadores")
-          .setDescription("Quantidade de jogadores")
-          .setRequired(true)
-      )
-
+      .setName("ranking")
+      .setDescription("Ver ranking da guilda")
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-
-  await rest.put(
-    Routes.applicationCommands(client.user.id),
-    { body: commands }
-  );
+  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
 });
 
 /* ======================= INTERAÇÕES ======================= */
@@ -240,20 +262,32 @@ client.on("interactionCreate", async i => {
   if (i.isChatInputCommand()) {
 
     if (i.commandName === "criar") {
-      const roles = parseRoles(i.options.getString("classes"));
+
+      const parsed = parseRoles(i.options.getString("classes"));
+      if (parsed.total !== i.options.getInteger("jogadores"))
+        return i.reply({ content: "❌ Soma das classes diferente do total.", ephemeral: true });
+
+      const validDate = isValidDate(
+        i.options.getString("data"),
+        i.options.getString("horario")
+      );
+
+      if (!validDate)
+        return i.reply({ content: "❌ Data ou horário inválido.", ephemeral: true });
+
       const members = {};
-      for (const r in roles) members[r] = [];
+      for (const r in parsed.roles) members[r] = [];
 
       const group = {
         title: i.options.getString("tipo"),
         total: i.options.getInteger("jogadores"),
-        roles,
+        roles: parsed.roles,
         members,
-        startDate: parseDateTime(
-          i.options.getString("data"),
-          i.options.getString("horario")
-        ),
-        channelId: i.channelId
+        startDate: validDate,
+        channelId: i.channelId,
+        creator: i.user.id,
+        closed: false,
+        pinged: false
       };
 
       const msg = await i.reply({
@@ -264,14 +298,25 @@ client.on("interactionCreate", async i => {
       groups.set(msg.id, group);
       await msg.edit({ components: buildButtons(group, msg.id) });
       await saveGroups();
+
+      const logChannel = await getLogChannel(i.guild);
+      logChannel.send(`📌 Evento criado por <@${i.user.id}>`);
     }
 
-    if (i.commandName === "divisao") {
-      const loot = i.options.getInteger("loot");
-      const jogadores = i.options.getInteger("jogadores");
-      const valor = Math.floor(loot / jogadores);
+    if (i.commandName === "ranking") {
+      const ranking = await loadRanking();
+      const sorted = Object.entries(ranking)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
 
-      return i.reply(`💰 Cada jogador recebe: ${valor.toLocaleString("pt-BR")}`);
+      if (!sorted.length)
+        return i.reply("Nenhum ponto registrado ainda.");
+
+      const text = sorted
+        .map((r, index) => `**${index + 1}.** <@${r[0]}> — ${r[1]} participações`)
+        .join("\n");
+
+      i.reply({ content: `🏆 Ranking da Guilda\n\n${text}` });
     }
   }
 
@@ -280,7 +325,7 @@ client.on("interactionCreate", async i => {
 
     const [action, msgId, role] = i.customId.split("_");
     const group = groups.get(msgId);
-    if (!group) return;
+    if (!group || group.closed) return;
 
     const channel = await client.channels.fetch(i.channelId);
     const msg = await channel.messages.fetch(msgId);
@@ -298,12 +343,27 @@ client.on("interactionCreate", async i => {
         group.members[r] = group.members[r].filter(id => id !== i.user.id);
     }
 
-    if (action === "ping") {
-      const mentions = [];
-      for (const r in group.members)
-        group.members[r].forEach(id => mentions.push(`<@${id}>`));
+    if (action === "close") {
+      if (i.user.id !== group.creator) return;
 
-      if (mentions.length) await channel.send(mentions.join(" "));
+      group.closed = true;
+
+      const participants = [];
+      for (const r in group.members)
+        group.members[r].forEach(id => participants.push(id));
+
+      await addPoints(participants);
+
+      const logChannel = await getLogChannel(i.guild);
+      logChannel.send(`🛑 Evento encerrado por <@${i.user.id}>`);
+
+      await msg.edit({
+        embeds: [buildEmbed(group)],
+        components: []
+      });
+
+      await saveGroups();
+      return;
     }
 
     await msg.edit({
@@ -315,28 +375,42 @@ client.on("interactionCreate", async i => {
   }
 });
 
-/* ======================= ATUALIZAÇÃO ======================= */
+/* ======================= SISTEMA AUTOMÁTICO ======================= */
 
 setInterval(async () => {
   for (const [msgId, group] of groups.entries()) {
+    if (group.closed) continue;
+
+    const now = new Date();
+    const diff = group.startDate - now;
+
     try {
       const channel = await client.channels.fetch(group.channelId);
       const msg = await channel.messages.fetch(msgId);
-      await msg.edit({
-        embeds: [buildEmbed(group)],
-        components: buildButtons(group, msgId)
-      });
+
+      if (diff <= 5 * 60 * 1000 && diff > 0 && !group.pinged) {
+        channel.send("⚠️ Evento começa em 5 minutos!");
+        group.pinged = true;
+      }
+
+      if (diff <= 0) {
+        await msg.edit({
+          embeds: [buildEmbed(group)],
+          components: buildButtons(group, msgId)
+        });
+      }
+
     } catch {}
   }
-}, 60000);
+}, 30000);
 
 /* ======================= LOGIN ======================= */
 
 client.login(process.env.DISCORD_TOKEN);
 
-/* ======================= HTTP PARA RENDER ======================= */
+/* ======================= HTTP RENDER ======================= */
 
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
-  res.end("Bot online");
+  res.end("Bot PRO online");
 }).listen(port);
