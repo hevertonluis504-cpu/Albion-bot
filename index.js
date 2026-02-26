@@ -167,11 +167,12 @@ function buildEmbed(group) {
     .setTitle(`⚔️ ${group.title}`)
     .setColor(color)
     .setDescription(
-      `📅 <t:${Math.floor(group.startDate.getTime() / 1000)}:F>\n` +
-      `⏳ <t:${Math.floor(group.startDate.getTime() / 1000)}:R>\n\n` +
-      `👥 Total: ${group.total}\n` +
-      `📌 Status: ${status}`
-    )
+  `📅 <t:${Math.floor(group.startDate.getTime() / 1000)}:F>\n` +
+  `⏳ <t:${Math.floor(group.startDate.getTime() / 1000)}:R>\n\n` +
+  `📝 **Descrição:**\n${group.descricao}\n\n` +
+  `👥 Total: ${group.total}\n` +
+  `📌 Status: ${status}`
+)
     .setFooter({ text: "Sistema Guild PRO" });
 
   for (const r in group.roles) {
@@ -272,7 +273,11 @@ client.once(Events.ClientReady, async () => {
           .setDescription("HH:MM")
           .setRequired(true)
       ),
-
+      .addStringOption(o =>
+       o.setName("descricao")
+    .setDescription("Descrição do evento")
+    .setRequired(false)
+)
     new SlashCommandBuilder()
       .setName("ranking")
       .setDescription("Ver ranking da guilda")
@@ -314,7 +319,8 @@ client.on("interactionCreate", async i => {
         channelId: i.channelId,
         creator: i.user.id,
         closed: false,
-        pinged: false
+        pinged: false,
+        descricao: i.options.getString("descricao") || "Sem descrição."
       };
 
       const msg = await i.reply({
