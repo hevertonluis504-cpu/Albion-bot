@@ -28,27 +28,72 @@ const client = new Client({
 });
 
 const groups = new Map();
-const rankingFile = "./ranking.json";
 
-/* ======================= RANKING ======================= */
+/* ======================= RANKING (GITHUB) ======================= */
 
 async function loadRanking() {
   try {
-    return JSON.parse(await fs.readFile(rankingFile, "utf8"));
-  } catch {
+    const response = await axios.get(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+      {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+        },
+      }
+    );
+
+    const content = Buffer.from(response.data.content, "base64").toString("utf8");
+    return JSON.parse(content);
+
+  } catch (error) {
+    console.log("Criando ranking novo...");
     return {};
   }
 }
 
-async function saveRanking(data) {
-  await fs.writeFile(rankingFile, JSON.stringify(data, null, 2));
+async function saveRanking(ranking) {
+  const content = Buffer.from(
+    JSON.stringify(ranking, null, 2)
+  ).toString("base64");
+
+  try {
+    const { data } = await axios.get(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+      {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+        },
+      }
+    );
+
+    await axios.put(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+      {
+        message: "Atualizando ranking automaticamente",
+        content: content,
+        sha: data.sha,
+      },
+      {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+        },
+      }
+    );
+
+    console.log("Ranking atualizado no GitHub!");
+
+  } catch (error) {
+    console.error("Erro ao salvar ranking:", error.response?.data || error.message);
+  }
 }
 
 async function addPoints(users) {
   const ranking = await loadRanking();
+
   for (const id of users) {
     ranking[id] = (ranking[id] || 0) + 1;
   }
+
   await saveRanking(ranking);
 }
 
