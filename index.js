@@ -491,13 +491,34 @@ setInterval(async () => {
 
 /* ======================= LOGIN ======================= */
 
-console.log("TOKEN bruto:", process.env.DISCORD_TOKEN);
-console.log("TOKEN tamanho:", process.env.DISCORD_TOKEN?.length);
+console.log("Iniciando sistema...");
 
-client.login(process.env.DISCORD_TOKEN?.trim())
-  .then(() => console.log("Login executado"))
-  .catch(err => console.error("Erro login:", err));
+client.on("ready", () => {
+  console.log("✅ READY disparado");
+  console.log("Bot conectado como:", client.user.tag);
+});
 
+client.on("error", (err) => {
+  console.error("Erro no client:", err);
+});
+
+client.on("shardError", (err) => {
+  console.error("Shard error:", err);
+});
+
+client.on("disconnect", (event) => {
+  console.log("Desconectado:", event);
+});
+
+(async () => {
+  try {
+    console.log("Tentando login...");
+    await client.login(process.env.DISCORD_TOKEN.trim());
+    console.log("Login Promise resolvida");
+  } catch (err) {
+    console.error("Erro ao logar:", err);
+  }
+})();
 /* ======================= HTTP RENDER ======================= */
 
 const port = process.env.PORT || 3000;
