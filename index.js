@@ -491,7 +491,20 @@ setInterval(async () => {
 
 /* ======================= LOGIN ======================= */
 
-client.login(process.env.DISCORD_TOKEN);
+console.log("Tentando conectar no Discord...");
+
+client.on("ready", () => {
+  console.log(`✅ Bot conectado como ${client.user.tag}`);
+});
+
+client.on("error", (err) => {
+  console.error("Erro no client:", err);
+});
+
+client.login(process.env.DISCORD_TOKEN.trim())
+  .catch(err => {
+    console.error("❌ Erro ao fazer login:", err);
+  });
 
 /* ======================= HTTP RENDER ======================= */
 
