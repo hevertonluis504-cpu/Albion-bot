@@ -1,6 +1,7 @@
 require("dotenv").config();
 const fs = require("fs").promises;
 const http = require("http");
+
 const {
   Client,
   GatewayIntentBits,
@@ -11,26 +12,22 @@ const {
   REST,
   Routes,
   SlashCommandBuilder,
-  Events,
-  ChannelType,
-  PermissionFlagsBits
+  Events
 } = require("discord.js");
 
+/* ===================== PROTEÇÃO ANTI-CRASH ===================== */
+process.on("unhandledRejection", console.error);
+process.on("uncaughtException", console.error);
+
+/* ===================== CLIENT ===================== */
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
 const groups = new Map();
-let ranking = {};
-const rankingFile = "./ranking.json";
 
-// ======================= LOAD =======================
-async function loadRanking() {
-  try { ranking = JSON.parse(await fs.readFile(rankingFile, "utf8")); }
-  catch { ranking = {}; }
-}
+/* ===================== FUNÇÕES ===================== */
 
-// ======================= UTILS =======================
 function createBrazilDate(dateStr, timeStr) {
   const [d, m, y] = dateStr.split("/").map(Number);
   const [h, min] = timeStr.split(":").map(Number);
@@ -42,6 +39,7 @@ function createBrazilDate(dateStr, timeStr) {
 function parseRoles(input) {
   const roles = {};
   let total = 0;
+
   input.split(",").forEach(p => {
     const match = p.trim().match(/^(\d+)\s+(.+)$/);
     if (match) {
@@ -51,6 +49,7 @@ function parseRoles(input) {
       total += qty;
     }
   });
+
   return { roles, total };
 }
 
@@ -72,7 +71,7 @@ function progressBar(current, total) {
 function buildEmbed(group) {
   const embed = new EmbedBuilder()
     .setTitle(`⚔️ ${group.title}`)
-    .setColor(0x3498db)
+    .setColor(group.closed ? 0xe74c3c : 0x3498db)
     .setDescription(
       `📅 <t:${Math.floor(group.startDate.getTime()/1000)}:F>\n` +
       `⏳ <t:${Math.floor(group.startDate.getTime()/1000)}:R>\n\n` +
@@ -120,7 +119,6 @@ function buildButtons(group, msgId) {
       .setCustomId(`leave_${msgId}`)
       .setLabel("Sair")
       .setStyle(ButtonStyle.Danger),
-
     new ButtonBuilder()
       .setCustomId(`close_${msgId}`)
       .setLabel("Encerrar")
@@ -131,28 +129,35 @@ function buildButtons(group, msgId) {
   return rows;
 }
 
-// ======================= READY =======================
+/* ===================== READY ===================== */
+
 client.once(Events.ClientReady, async () => {
-  console.log("✅ Bot online!");
-  await loadRanking();
+  console.log("🤖 Bot online!");
 
   const commands = [
     new SlashCommandBuilder()
       .setName("criar")
       .setDescription("Criar evento")
-      .addStringOption(o => o.setName("tipo").setRequired(true))
-      .addIntegerOption(o => o.setName("jogadores").setRequired(true))
-      .addStringOption(o => o.setName("classes").setRequired(true))
-      .addStringOption(o => o.setName("data").setRequired(true))
-      .addStringOption(o => o.setName("horario").setRequired(true))
-      .addStringOption(o => o.setName("descricao").setRequired(false))
+      .addStringOption(o => o.setName("tipo").setDescription("Tipo").setRequired(true))
+      .addIntegerOption(o => o.setName("jogadores").setDescription("Total jogadores").setRequired(true))
+      .addStringOption(o => o.setName("classes").setDescription("Ex: 1 Tank, 1 Healer, 3 DPS").setRequired(true))
+      .addStringOption(o => o.setName("data").setDescription("DD/MM/AAAA").setRequired(true))
+      .addStringOption(o => o.setName("horario").setDescription("HH:MM").setRequired(true))
+      .addStringOption(o => o.setName("descricao").setDescription("Descrição").setRequired(false))
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+
+  await rest.put(
+    Routes.applicationCommands(client.user.id),
+    { body: commands }
+  );
+
+  console.log("✅ Slash commands registrados");
 });
 
-// ======================= INTERAÇÕES =======================
+/* ===================== INTERAÇÕES ===================== */
+
 client.on("interactionCreate", async i => {
 
   if (i.isChatInputCommand()) {
@@ -169,7 +174,7 @@ client.on("interactionCreate", async i => {
       );
 
       if (!date)
-        return i.reply({ content: "❌ Data inválida.", ephemeral: true });
+        return i.reply({ content: "❌ Data ou horário inválido.", ephemeral: true });
 
       const members = {};
       for (const r in parsed.roles) members[r] = [];
@@ -188,10 +193,12 @@ client.on("interactionCreate", async i => {
 
       await i.deferReply();
 
-      const msg = await i.editReply({
+      await i.editReply({
         embeds: [buildEmbed(group)],
         components: []
       });
+
+      const msg = await i.fetchReply(); // ✅ CORREÇÃO
 
       groups.set(msg.id, group);
 
@@ -236,17 +243,19 @@ client.on("interactionCreate", async i => {
   }
 });
 
-// ======================= LOGIN =======================
+/* ===================== LOGIN ===================== */
+
 if (!process.env.DISCORD_TOKEN) {
   console.error("❌ DISCORD_TOKEN não definido!");
   process.exit(1);
 }
 
 client.login(process.env.DISCORD_TOKEN)
-  .then(() => console.log("🤖 Bot conectando ao Discord..."))
-  .catch(err => console.error("Erro no login:", err));
+  .then(() => console.log("🔐 Conectando ao Discord..."))
+  .catch(console.error);
 
-// ======================= KEEP ALIVE RENDER =======================
+/* ===================== KEEP ALIVE RENDER ===================== */
+
 const port = process.env.PORT || 10000;
 
 http.createServer((req, res) => {
