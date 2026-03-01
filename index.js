@@ -237,7 +237,21 @@ client.on("interactionCreate", async i => {
 });
 
 // ======================= LOGIN =======================
-client.login(process.env.DISCORD_TOKEN);
+if (!process.env.DISCORD_TOKEN) {
+  console.error("❌ DISCORD_TOKEN não definido!");
+  process.exit(1);
+}
 
-// ======================= KEEP ALIVE =======================
-http.createServer((req, res) => res.end("Bot online")).listen(process.env.PORT || 3000);
+client.login(process.env.DISCORD_TOKEN)
+  .then(() => console.log("🤖 Bot conectando ao Discord..."))
+  .catch(err => console.error("Erro no login:", err));
+
+// ======================= KEEP ALIVE RENDER =======================
+const port = process.env.PORT || 10000;
+
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end("Bot online");
+}).listen(port, "0.0.0.0", () => {
+  console.log("🌐 HTTP ativo na porta", port);
+});
