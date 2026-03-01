@@ -249,11 +249,12 @@ if (!process.env.DISCORD_TOKEN) {
   console.error("❌ DISCORD_TOKEN não definido!");
   process.exit(1);
 }
+console.log("TOKEN existe?", !!process.env.DISCORD_TOKEN);
+console.log("Iniciando login...");
 
 client.login(process.env.DISCORD_TOKEN)
-  .then(() => console.log("🔐 Conectando ao Discord..."))
-  .catch(console.error);
-
+  .then(() => console.log("🔐 Login enviado para o Discord"))
+  .catch(err => console.error("❌ Erro no login:", err));
 /* ===================== KEEP ALIVE RENDER ===================== */
 
 const port = process.env.PORT || 10000;
