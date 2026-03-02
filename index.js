@@ -203,4 +203,6 @@ client.on("shardError", error => {
   console.error("❌ Erro de conexão:", error);
 });
 
-client.login(process.env.TOKEN);
+client.login(process.env.TOKEN)
+  .then(() => console.log("🔐 Conectando ao Discord..."))
+  .catch(err => console.error("Erro ao logar:", err));
