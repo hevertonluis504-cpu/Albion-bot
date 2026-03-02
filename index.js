@@ -14,6 +14,12 @@ const moment = require("moment-timezone");
 const express = require("express");
 
 // =======================
+// DEBUG VARIÁVEIS
+// =======================
+console.log("CLIENT_ID:", process.env.CLIENT_ID);
+console.log("TOKEN EXISTE?", process.env.TOKEN ? "SIM" : "NÃO");
+
+// =======================
 // SERVIDOR WEB (RENDER)
 // =======================
 const app = express();
@@ -69,8 +75,7 @@ client.once("ready", () => {
   console.log("=================================");
   console.log("🛡️ BOT DE EVENTOS ALBION ONLINE");
   console.log(`🤖 Logado como ${client.user.tag}`);
-  console.log("⏰ Horário Brasil ativo");
-  console.log("🚀 Sistema profissional iniciado");
+  console.log("🚀 Sistema iniciado com sucesso");
   console.log("=================================");
 
   client.user.setPresence({
@@ -88,7 +93,6 @@ client.once("ready", () => {
 // =======================
 client.on("interactionCreate", async interaction => {
 
-  // CRIAR EVENTO
   if (interaction.isChatInputCommand()) {
 
     if (interaction.commandName === "evento") {
@@ -146,7 +150,6 @@ client.on("interactionCreate", async interaction => {
     }
   }
 
-  // BOTÕES
   if (interaction.isButton()) {
 
     const evento = eventos.get(interaction.message.id);
@@ -167,7 +170,6 @@ client.on("interactionCreate", async interaction => {
     }
 
     evento.participantes.push({
-      id: interaction.user.id,
       nome: interaction.user.username,
       classe: interaction.customId
     });
@@ -195,25 +197,28 @@ client.on("interactionCreate", async interaction => {
 });
 
 // =======================
-// START PROFISSIONAL
+// START SEGURO (NÃO TRAVA)
 // =======================
 async function startBot() {
   try {
-    console.log("🔄 Registrando comandos globais...");
 
-    await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
-      { body: commands }
-    );
+    console.log("🔄 Tentando registrar comandos...");
 
-    console.log("✅ Comandos registrados!");
+    try {
+      await rest.put(
+        Routes.applicationCommands(process.env.CLIENT_ID),
+        { body: commands }
+      );
+      console.log("✅ Comandos registrados!");
+    } catch (cmdError) {
+      console.error("⚠️ Erro ao registrar comandos:", cmdError.message);
+    }
 
     await client.login(process.env.TOKEN);
-
-    console.log("🔐 Login realizado com sucesso!");
+    console.log("🔐 Login enviado ao Discord!");
 
   } catch (error) {
-    console.error("❌ ERRO AO INICIAR BOT:", error);
+    console.error("❌ ERRO GERAL AO INICIAR:", error);
   }
 }
 
