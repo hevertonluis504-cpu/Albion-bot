@@ -1,160 +1,206 @@
 require("dotenv").config();
-
 const {
   Client,
   GatewayIntentBits,
-  SlashCommandBuilder,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  Events,
   REST,
-  Routes
+  Routes,
+  SlashCommandBuilder
 } = require("discord.js");
+const moment = require("moment-timezone");
+const express = require("express");
 
+// ====== SERVIDOR WEB (OBRIGATÓRIO RENDER) ======
+const app = express();
+app.get("/", (req, res) => {
+  res.send("🛡️ Albion Guild Event Bot Online 🚀");
+});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🌐 Servidor web ativo na porta ${PORT}`);
+});
+
+// ====== CLIENTE DISCORD ======
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// Armazenamento temporário em memória
-const eventos = new Map();
-
-// Classes
-const classes = [
-  { id: "tank", nome: "🛡️ TANK" },
-  { id: "healer", nome: "💚 HEALER" },
-  { id: "dps", nome: "⚔️ DPS" },
-  { id: "sup", nome: "✨ SUP" }
+// ====== REGISTRAR COMANDO GLOBAL ======
+const commands = [
+  new SlashCommandBuilder()
+    .setName("evento")
+    .setDescription("Criar evento da guilda")
+    .addStringOption(option =>
+      option.setName("titulo")
+        .setDescription("Título do evento")
+        .setRequired(true))
+    .addIntegerOption(option =>
+      option.setName("jogadores")
+        .setDescription("Quantidade máxima de jogadores")
+        .setRequired(true))
+    .addStringOption(option =>
+      option.setName("descricao")
+        .setDescription("Descrição do evento")
+        .setRequired(true))
 ];
 
-// Criar embed
-function criarEmbed(evento) {
+const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-  const dataBrasil = new Date().toLocaleString("pt-BR", {
-    timeZone: "America/Sao_Paulo"
+(async () => {
+  try {
+    console.log("🔄 Registrando comandos globais...");
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: commands }
+    );
+    console.log("✅ Comandos registrados com sucesso!");
+  } catch (error) {
+    console.error(error);
+  }
+})();
+
+// ====== SISTEMA EM MEMÓRIA ======
+let eventos = new Map();
+
+// ====== BOT READY ======
+client.once("ready", () => {
+  console.log("=================================");
+  console.log("🛡️ BOT DE EVENTOS ALBION ONLINE");
+  console.log(`🤖 Logado como ${client.user.tag}`);
+  console.log("⏰ Horário Brasil ativo");
+  console.log("🚀 Sistema profissional iniciado");
+  console.log("=================================");
+
+  client.user.setPresence({
+    activities: [{
+      name: "Eventos da Guilda ⚔️",
+      type: 3
+    }],
+    status: "online"
   });
-
-  let lista = "";
-
-  classes.forEach(c => {
-    const membros = Object.entries(evento.participantes)
-      .filter(([_, classe]) => classe === c.id)
-      .map(([id]) => `<@${id}>`);
-
-    lista += `**${c.nome}**\n`;
-    lista += membros.length ? membros.join("\n") : "—";
-    lista += "\n\n";
-  });
-
-  const total = Object.keys(evento.participantes).length;
-
-  return new EmbedBuilder()
-    .setTitle(`⚔️ ${evento.titulo}`)
-    .setColor("Orange")
-    .addFields(
-      { name: "📅 Data/Hora (Brasília)", value: dataBrasil },
-      { name: "👥 Jogadores", value: `${total}/${evento.limite}` },
-      { name: "📝 Descrição", value: evento.descricao },
-      { name: "📋 Participantes", value: lista }
-    )
-    .setFooter({ text: "Sistema de Eventos - Albion Guild" });
-}
-
-// Ready
-client.once("ready", async () => {
-
-  console.log(`🔥 Online como ${client.user.tag}`);
-
-  const commands = [
-    new SlashCommandBuilder()
-      .setName("evento")
-      .setDescription("Criar evento da guilda")
-      .addStringOption(o =>
-        o.setName("titulo").setDescription("Título").setRequired(true))
-      .addIntegerOption(o =>
-        o.setName("jogadores").setDescription("Limite total").setRequired(true))
-      .addStringOption(o =>
-        o.setName("descricao").setDescription("Descrição").setRequired(true))
-  ].map(c => c.toJSON());
-
-  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
-
-  await rest.put(
-    Routes.applicationCommands(process.env.CLIENT_ID),
-    { body: commands }
-  );
-
-  console.log("✅ Comando global registrado (pode demorar até 1h)");
 });
 
-// Interações
-client.on(Events.InteractionCreate, async interaction => {
+// ====== INTERAÇÕES ======
+client.on("interactionCreate", async interaction => {
 
+  // ====== CRIAR EVENTO ======
   if (interaction.isChatInputCommand()) {
 
-    const eventId = Date.now().toString();
+    if (interaction.commandName === "evento") {
 
-    eventos.set(eventId, {
-      titulo: interaction.options.getString("titulo"),
-      limite: interaction.options.getInteger("jogadores"),
-      descricao: interaction.options.getString("descricao"),
-      participantes: {}
-    });
+      const titulo = interaction.options.getString("titulo");
+      const maxJogadores = interaction.options.getInteger("jogadores");
+      const descricao = interaction.options.getString("descricao");
 
-    const embed = criarEmbed(eventos.get(eventId));
+      const dataBrasil = moment()
+        .tz("America/Sao_Paulo")
+        .format("DD/MM/YYYY HH:mm");
 
-    const row = new ActionRowBuilder();
-    classes.forEach(c => {
-      row.addComponents(
+      const embed = new EmbedBuilder()
+        .setColor("#FFD700")
+        .setTitle(`⚔️ ${titulo}`)
+        .setDescription("🛡️ **Evento Oficial da Guilda**")
+        .addFields(
+          { name: "📅 Data/Hora (BR)", value: `\`${dataBrasil}\``, inline: true },
+          { name: "👥 Vagas", value: `0/${maxJogadores}`, inline: true },
+          { name: "📜 Descrição", value: descricao },
+          { name: "🎯 Participantes", value: "Nenhum ainda...", inline: false }
+        )
+        .setFooter({ text: "Albion Guild Event System • Profissional" })
+        .setTimestamp();
+
+      const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`classe_${c.id}_${eventId}`)
-          .setLabel(c.nome)
-          .setStyle(ButtonStyle.Primary)
+          .setCustomId("TANK")
+          .setLabel("🛡️ TANK")
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId("HEALER")
+          .setLabel("💚 HEALER")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("DPS")
+          .setLabel("⚔️ DPS")
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId("SUP")
+          .setLabel("✨ SUP")
+          .setStyle(ButtonStyle.Secondary)
       );
-    });
 
-    await interaction.reply({
-      embeds: [embed],
-      components: [row]
-    });
+      const msg = await interaction.reply({
+        embeds: [embed],
+        components: [row],
+        fetchReply: true
+      });
+
+      eventos.set(msg.id, {
+        max: maxJogadores,
+        participantes: []
+      });
+    }
   }
 
+  // ====== BOTÕES ======
   if (interaction.isButton()) {
 
-    if (!interaction.customId.startsWith("classe_")) return;
-
-    const [, classeId, eventId] = interaction.customId.split("_");
-    const evento = eventos.get(eventId);
+    const evento = eventos.get(interaction.message.id);
     if (!evento) return;
 
-    const userId = interaction.user.id;
-    const total = Object.keys(evento.participantes).length;
-
-    if (evento.participantes[userId]) {
-
-      if (evento.participantes[userId] === classeId) {
-        delete evento.participantes[userId];
-        await interaction.reply({ content: "❌ Saiu do evento.", ephemeral: true });
-      } else {
-        evento.participantes[userId] = classeId;
-        await interaction.reply({ content: "🔄 Classe alterada.", ephemeral: true });
-      }
-
-    } else {
-
-      if (total >= evento.limite) {
-        return interaction.reply({ content: "🚫 Evento lotado!", ephemeral: true });
-      }
-
-      evento.participantes[userId] = classeId;
-      await interaction.reply({ content: "✅ Entrou no evento!", ephemeral: true });
+    if (evento.participantes.length >= evento.max) {
+      return interaction.reply({
+        content: "❌ Evento lotado!",
+        ephemeral: true
+      });
     }
 
-    await interaction.message.edit({
-      embeds: [criarEmbed(evento)]
+    if (evento.participantes.find(p => p.id === interaction.user.id)) {
+      return interaction.reply({
+        content: "⚠️ Você já está no evento!",
+        ephemeral: true
+      });
+    }
+
+    evento.participantes.push({
+      id: interaction.user.id,
+      nome: interaction.user.username,
+      classe: interaction.customId
+    });
+
+    const lista = evento.participantes
+      .map(p => `• ${p.nome} — ${p.classe}`)
+      .join("\n");
+
+    const embedAtualizado = EmbedBuilder.from(interaction.message.embeds[0])
+      .spliceFields(1, 1, {
+        name: "👥 Vagas",
+        value: `${evento.participantes.length}/${evento.max}`,
+        inline: true
+      })
+      .spliceFields(3, 1, {
+        name: "🎯 Participantes",
+        value: lista
+      });
+
+    await interaction.update({
+      embeds: [embedAtualizado]
     });
   }
+
+});
+
+// ====== ANTI-CRASH ======
+process.on("unhandledRejection", error => {
+  console.error("❌ Erro não tratado:", error);
+});
+process.on("uncaughtException", error => {
+  console.error("❌ Exceção não capturada:", error);
+});
+client.on("shardError", error => {
+  console.error("❌ Erro de conexão:", error);
 });
 
 client.login(process.env.TOKEN);
