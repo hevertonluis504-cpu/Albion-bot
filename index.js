@@ -1,214 +1,181 @@
-
 require("dotenv").config();
-const { 
-  Client, 
-  GatewayIntentBits, 
-  ActionRowBuilder, 
-  ButtonBuilder, 
-  ButtonStyle, 
-  EmbedBuilder, 
-  REST, 
-  Routes, 
-  SlashCommandBuilder, 
-  Events 
+
+const {
+  Client,
+  GatewayIntentBits,
+  SlashCommandBuilder,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  Events,
+  REST,
+  Routes
 } = require("discord.js");
+
+const fs = require("fs");
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-const groups = new Map();
+const FILE = "./eventos.json";
 
-// ================= UTILIDADES =================
-
-function getRoleEmoji(name) {
-  const n = name.toLowerCase();
-  if (n.includes("tank")) return "🛡️";
-  if (n.includes("heal")) return "💚";
-  if (n.includes("dps")) return "⚔️";
-  return "✨";
+// ================= JSON =================
+function carregarEventos() {
+  if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, JSON.stringify({}));
+  return JSON.parse(fs.readFileSync(FILE));
 }
 
-function progressBar(current, total) {
-  const size = 8;
-  const filled = Math.round((current / total) * size);
-  return "🟢".repeat(filled) + "⚪".repeat(size - filled);
+function salvarEventos(data) {
+  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
 }
 
-function parseRoles(input) {
-  const roles = {};
-  let total = 0;
-  input.split(",").forEach(r => {
-    const match = r.trim().match(/^(\d+)\s+(.+)$/);
-    if (match) {
-      const qty = parseInt(match[1]);
-      const name = match[2];
-      roles[name] = { limit: qty };
-      total += qty;
-    }
+let eventos = carregarEventos();
+
+// ================= CLASSES =================
+const classes = [
+  { id: "tank", nome: "🛡️ TANK" },
+  { id: "healer", nome: "💚 HEALER" },
+  { id: "dps", nome: "⚔️ DPS" },
+  { id: "sup", nome: "✨ SUP" }
+];
+
+// ================= EMBED =================
+function criarEmbed(evento) {
+
+  const dataBrasil = new Date().toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo"
   });
-  return { roles, total };
-}
 
-function buildEmbed(group) {
-  const embed = new EmbedBuilder()
-    .setTitle(`⚔️ ${group.title}`)
-    .setColor(0x00bfff)
-    .setDescription(
-      `📝 **Descrição:** ${group.description}\n\n` +
-      `🇧🇷 **Horário (Brasil):** <t:${Math.floor(group.startDate/1000)}:F>\n` +
-      `⏳ Começa <t:${Math.floor(group.startDate/1000)}:R>\n\n` +
-      `👥 Total: ${group.total}\n` +
-      `📌 Status: ${group.closed ? "Encerrado 🔒" : "Aberto 🟢"}`
-    );
+  let lista = "";
 
-  for (const role in group.roles) {
-    const members = group.members[role] || [];
-    embed.addFields({
-      name: `${getRoleEmoji(role)} ${role}`,
-      value: `${progressBar(members.length, group.roles[role].limit)} (${members.length}/${group.roles[role].limit})\n` +
-             (members.length ? members.map(id => `<@${id}>`).join("\n") : "—"),
-      inline: true
-    });
-  }
+  classes.forEach(c => {
+    const membros = Object.entries(evento.participantes)
+      .filter(([_, classe]) => classe === c.id)
+      .map(([id]) => `<@${id}>`);
 
-  return embed;
-}
+    lista += `**${c.nome}**\n`;
+    lista += membros.length ? membros.join("\n") : "—";
+    lista += "\n\n";
+  });
 
-function buildButtons(group, msgId) {
-  if (group.closed) return [];
+  const total = Object.keys(evento.participantes).length;
 
-  const row = new ActionRowBuilder();
-
-  for (const role in group.roles) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`join_${msgId}_${role}`)
-        .setLabel(role)
-        .setStyle(ButtonStyle.Primary)
-    );
-  }
-
-  row.addComponents(
-    new ButtonBuilder()
-      .setCustomId(`leave_${msgId}`)
-      .setLabel("Sair")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId(`close_${msgId}`)
-      .setLabel("Encerrar")
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  return [row];
+  return new EmbedBuilder()
+    .setTitle(`⚔️ ${evento.titulo}`)
+    .setColor("Orange")
+    .addFields(
+      { name: "📅 Data/Hora (Brasília)", value: dataBrasil },
+      { name: "👥 Jogadores", value: `${total}/${evento.limite}` },
+      { name: "📝 Descrição", value: evento.descricao },
+      { name: "📋 Participantes", value: lista }
+    )
+    .setFooter({ text: "Sistema Profissional de Eventos - Albion Guild" });
 }
 
 // ================= READY =================
-
-client.once(Events.ClientReady, async () => {
-  console.log(`🤖 Conectado como ${client.user.tag}`);
+client.once("ready", async () => {
+  console.log(`🔥 Bot online como ${client.user.tag}`);
 
   const commands = [
     new SlashCommandBuilder()
-      .setName("criar")
-      .setDescription("Criar evento")
-      .addStringOption(o => o.setName("tipo").setDescription("Nome do evento").setRequired(true))
-      .addStringOption(o => o.setName("descricao").setDescription("Descrição do evento").setRequired(true))
-      .addIntegerOption(o => o.setName("jogadores").setDescription("Total de jogadores").setRequired(true))
-      .addStringOption(o => o.setName("classes").setDescription("Ex: 1 Tank, 1 Healer, 3 DPS").setRequired(true))
-      .addStringOption(o => o.setName("data").setDescription("Formato: DD/MM/AAAA").setRequired(true))
-      .addStringOption(o => o.setName("horario").setDescription("Formato: HH:MM (Brasil)").setRequired(true))
+      .setName("evento")
+      .setDescription("Criar evento da guilda")
+      .addStringOption(o =>
+        o.setName("titulo").setDescription("Título").setRequired(true))
+      .addIntegerOption(o =>
+        o.setName("jogadores").setDescription("Limite total").setRequired(true))
+      .addStringOption(o =>
+        o.setName("descricao").setDescription("Descrição").setRequired(true))
   ].map(c => c.toJSON());
 
-  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+
+  // 👇 AGORA É GLOBAL (SEM GUILD ID)
   await rest.put(
-    Routes.applicationCommands(client.user.id),
+    Routes.applicationCommands(process.env.CLIENT_ID),
     { body: commands }
   );
 
-  console.log("✅ Slash command registrado");
+  console.log("✅ Comando global registrado (pode demorar até 1h para aparecer)");
 });
 
 // ================= INTERAÇÕES =================
-
-client.on("interactionCreate", async interaction => {
+client.on(Events.InteractionCreate, async interaction => {
 
   if (interaction.isChatInputCommand()) {
 
-    if (interaction.commandName === "criar") {
+    const titulo = interaction.options.getString("titulo");
+    const limite = interaction.options.getInteger("jogadores");
+    const descricao = interaction.options.getString("descricao");
 
-      const parsed = parseRoles(interaction.options.getString("classes"));
-      if (parsed.total !== interaction.options.getInteger("jogadores"))
-        return interaction.reply({ content: "❌ Soma das classes diferente do total.", ephemeral: true });
+    const eventId = Date.now().toString();
 
-      const dateStr = interaction.options.getString("data");
-      const timeStr = interaction.options.getString("horario");
-      const [d,m,y] = dateStr.split("/").map(Number);
-      const [h,min] = timeStr.split(":").map(Number);
+    eventos[eventId] = {
+      titulo,
+      limite,
+      descricao,
+      participantes: {}
+    };
 
-      // Força horário Brasil
-      const date = new Date(Date.UTC(y, m-1, d, h+3, min)); 
+    salvarEventos(eventos);
 
-      if (isNaN(date.getTime()))
-        return interaction.reply({ content: "❌ Data inválida.", ephemeral: true });
+    const embed = criarEmbed(eventos[eventId]);
 
-      const members = {};
-      for (const r in parsed.roles) members[r] = [];
+    const row = new ActionRowBuilder();
+    classes.forEach(c => {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`classe_${c.id}_${eventId}`)
+          .setLabel(c.nome)
+          .setStyle(ButtonStyle.Primary)
+      );
+    });
 
-      const group = {
-        title: interaction.options.getString("tipo"),
-        description: interaction.options.getString("descricao"),
-        total: interaction.options.getInteger("jogadores"),
-        roles: parsed.roles,
-        members,
-        startDate: date.getTime(),
-        creator: interaction.user.id,
-        closed: false
-      };
-
-      await interaction.deferReply();
-      await interaction.editReply({ embeds: [buildEmbed(group)] });
-      const msg = await interaction.fetchReply();
-
-      groups.set(msg.id, group);
-
-      await interaction.editReply({
-        embeds: [buildEmbed(group)],
-        components: buildButtons(group, msg.id)
-      });
-    }
+    await interaction.reply({
+      embeds: [embed],
+      components: [row]
+    });
   }
 
   if (interaction.isButton()) {
-    await interaction.deferUpdate();
-    const [action, msgId, role] = interaction.customId.split("_");
-    const group = groups.get(msgId);
-    if (!group) return;
 
-    if (action === "join") {
-      for (const r in group.members)
-        group.members[r] = group.members[r].filter(id => id !== interaction.user.id);
-      if (group.members[role].length < group.roles[role].limit)
-        group.members[role].push(interaction.user.id);
+    if (!interaction.customId.startsWith("classe_")) return;
+
+    const [, classeId, eventId] = interaction.customId.split("_");
+    const evento = eventos[eventId];
+    if (!evento) return;
+
+    const userId = interaction.user.id;
+    const total = Object.keys(evento.participantes).length;
+
+    if (evento.participantes[userId]) {
+
+      if (evento.participantes[userId] === classeId) {
+        delete evento.participantes[userId];
+        await interaction.reply({ content: "❌ Você saiu do evento.", ephemeral: true });
+      } else {
+        evento.participantes[userId] = classeId;
+        await interaction.reply({ content: "🔄 Classe alterada.", ephemeral: true });
+      }
+
+    } else {
+
+      if (total >= evento.limite) {
+        return interaction.reply({ content: "🚫 Evento lotado!", ephemeral: true });
+      }
+
+      evento.participantes[userId] = classeId;
+      await interaction.reply({ content: "✅ Você entrou no evento!", ephemeral: true });
     }
 
-    if (action === "leave") {
-      for (const r in group.members)
-        group.members[r] = group.members[r].filter(id => id !== interaction.user.id);
-    }
+    salvarEventos(eventos);
 
-    if (action === "close" && interaction.user.id === group.creator) {
-      group.closed = true;
-    }
-
-    const channel = await interaction.channel;
-    const msg = await channel.messages.fetch(msgId);
-
-    await msg.edit({
-      embeds: [buildEmbed(group)],
-      components: buildButtons(group, msgId)
+    await interaction.message.edit({
+      embeds: [criarEmbed(evento)]
     });
   }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.TOKEN);
