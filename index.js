@@ -13,22 +13,29 @@ const {
 const moment = require("moment-timezone");
 const express = require("express");
 
-// ====== SERVIDOR WEB (OBRIGATÓRIO RENDER) ======
+// =======================
+// SERVIDOR WEB (RENDER)
+// =======================
 const app = express();
 app.get("/", (req, res) => {
   res.send("🛡️ Albion Guild Event Bot Online 🚀");
 });
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🌐 Servidor web ativo na porta ${PORT}`);
 });
 
-// ====== CLIENTE DISCORD ======
+// =======================
+// CLIENT DISCORD
+// =======================
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// ====== REGISTRAR COMANDO GLOBAL ======
+// =======================
+// COMANDO GLOBAL
+// =======================
 const commands = [
   new SlashCommandBuilder()
     .setName("evento")
@@ -49,24 +56,16 @@ const commands = [
 
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-(async () => {
-  try {
-    console.log("🔄 Registrando comandos globais...");
-    await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
-      { body: commands }
-    );
-    console.log("✅ Comandos registrados com sucesso!");
-  } catch (error) {
-    console.error(error);
-  }
-})();
-
-// ====== SISTEMA EM MEMÓRIA ======
+// =======================
+// SISTEMA EM MEMÓRIA
+// =======================
 let eventos = new Map();
 
-// ====== BOT READY ======
+// =======================
+// READY
+// =======================
 client.once("ready", () => {
+
   console.log("=================================");
   console.log("🛡️ BOT DE EVENTOS ALBION ONLINE");
   console.log(`🤖 Logado como ${client.user.tag}`);
@@ -81,12 +80,15 @@ client.once("ready", () => {
     }],
     status: "online"
   });
+
 });
 
-// ====== INTERAÇÕES ======
+// =======================
+// INTERAÇÕES
+// =======================
 client.on("interactionCreate", async interaction => {
 
-  // ====== CRIAR EVENTO ======
+  // CRIAR EVENTO
   if (interaction.isChatInputCommand()) {
 
     if (interaction.commandName === "evento") {
@@ -107,7 +109,7 @@ client.on("interactionCreate", async interaction => {
           { name: "📅 Data/Hora (BR)", value: `\`${dataBrasil}\``, inline: true },
           { name: "👥 Vagas", value: `0/${maxJogadores}`, inline: true },
           { name: "📜 Descrição", value: descricao },
-          { name: "🎯 Participantes", value: "Nenhum ainda...", inline: false }
+          { name: "🎯 Participantes", value: "Nenhum ainda..." }
         )
         .setFooter({ text: "Albion Guild Event System • Profissional" })
         .setTimestamp();
@@ -144,7 +146,7 @@ client.on("interactionCreate", async interaction => {
     }
   }
 
-  // ====== BOTÕES ======
+  // BOTÕES
   if (interaction.isButton()) {
 
     const evento = eventos.get(interaction.message.id);
@@ -192,17 +194,42 @@ client.on("interactionCreate", async interaction => {
 
 });
 
-// ====== ANTI-CRASH ======
+// =======================
+// START PROFISSIONAL
+// =======================
+async function startBot() {
+  try {
+    console.log("🔄 Registrando comandos globais...");
+
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: commands }
+    );
+
+    console.log("✅ Comandos registrados!");
+
+    await client.login(process.env.TOKEN);
+
+    console.log("🔐 Login realizado com sucesso!");
+
+  } catch (error) {
+    console.error("❌ ERRO AO INICIAR BOT:", error);
+  }
+}
+
+startBot();
+
+// =======================
+// ANTI-CRASH
+// =======================
 process.on("unhandledRejection", error => {
   console.error("❌ Erro não tratado:", error);
 });
+
 process.on("uncaughtException", error => {
   console.error("❌ Exceção não capturada:", error);
 });
+
 client.on("shardError", error => {
   console.error("❌ Erro de conexão:", error);
 });
-
-client.login(process.env.TOKEN)
-  .then(() => console.log("🔐 Conectando ao Discord..."))
-  .catch(err => console.error("Erro ao logar:", err));
