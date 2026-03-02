@@ -1,7 +1,7 @@
 {
   "name": "albion-guild-bot",
-  "version": "1.0.0",
-  "description": "Bot profissional de eventos Albion Online",
+  "version": "3.0.0",
+  "description": "Bot de eventos Albion Online",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
