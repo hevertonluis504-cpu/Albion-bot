@@ -13,27 +13,14 @@ const {
   Routes
 } = require("discord.js");
 
-const fs = require("fs");
-
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-const FILE = "./eventos.json";
+// Armazenamento temporário em memória
+const eventos = new Map();
 
-// ================= JSON =================
-function carregarEventos() {
-  if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, JSON.stringify({}));
-  return JSON.parse(fs.readFileSync(FILE));
-}
-
-function salvarEventos(data) {
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
-}
-
-let eventos = carregarEventos();
-
-// ================= CLASSES =================
+// Classes
 const classes = [
   { id: "tank", nome: "🛡️ TANK" },
   { id: "healer", nome: "💚 HEALER" },
@@ -41,7 +28,7 @@ const classes = [
   { id: "sup", nome: "✨ SUP" }
 ];
 
-// ================= EMBED =================
+// Criar embed
 function criarEmbed(evento) {
 
   const dataBrasil = new Date().toLocaleString("pt-BR", {
@@ -71,12 +58,13 @@ function criarEmbed(evento) {
       { name: "📝 Descrição", value: evento.descricao },
       { name: "📋 Participantes", value: lista }
     )
-    .setFooter({ text: "Sistema Profissional de Eventos - Albion Guild" });
+    .setFooter({ text: "Sistema de Eventos - Albion Guild" });
 }
 
-// ================= READY =================
+// Ready
 client.once("ready", async () => {
-  console.log(`🔥 Bot online como ${client.user.tag}`);
+
+  console.log(`🔥 Online como ${client.user.tag}`);
 
   const commands = [
     new SlashCommandBuilder()
@@ -92,36 +80,29 @@ client.once("ready", async () => {
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-  // 👇 AGORA É GLOBAL (SEM GUILD ID)
   await rest.put(
     Routes.applicationCommands(process.env.CLIENT_ID),
     { body: commands }
   );
 
-  console.log("✅ Comando global registrado (pode demorar até 1h para aparecer)");
+  console.log("✅ Comando global registrado (pode demorar até 1h)");
 });
 
-// ================= INTERAÇÕES =================
+// Interações
 client.on(Events.InteractionCreate, async interaction => {
 
   if (interaction.isChatInputCommand()) {
 
-    const titulo = interaction.options.getString("titulo");
-    const limite = interaction.options.getInteger("jogadores");
-    const descricao = interaction.options.getString("descricao");
-
     const eventId = Date.now().toString();
 
-    eventos[eventId] = {
-      titulo,
-      limite,
-      descricao,
+    eventos.set(eventId, {
+      titulo: interaction.options.getString("titulo"),
+      limite: interaction.options.getInteger("jogadores"),
+      descricao: interaction.options.getString("descricao"),
       participantes: {}
-    };
+    });
 
-    salvarEventos(eventos);
-
-    const embed = criarEmbed(eventos[eventId]);
+    const embed = criarEmbed(eventos.get(eventId));
 
     const row = new ActionRowBuilder();
     classes.forEach(c => {
@@ -144,7 +125,7 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.customId.startsWith("classe_")) return;
 
     const [, classeId, eventId] = interaction.customId.split("_");
-    const evento = eventos[eventId];
+    const evento = eventos.get(eventId);
     if (!evento) return;
 
     const userId = interaction.user.id;
@@ -154,7 +135,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
       if (evento.participantes[userId] === classeId) {
         delete evento.participantes[userId];
-        await interaction.reply({ content: "❌ Você saiu do evento.", ephemeral: true });
+        await interaction.reply({ content: "❌ Saiu do evento.", ephemeral: true });
       } else {
         evento.participantes[userId] = classeId;
         await interaction.reply({ content: "🔄 Classe alterada.", ephemeral: true });
@@ -167,10 +148,8 @@ client.on(Events.InteractionCreate, async interaction => {
       }
 
       evento.participantes[userId] = classeId;
-      await interaction.reply({ content: "✅ Você entrou no evento!", ephemeral: true });
+      await interaction.reply({ content: "✅ Entrou no evento!", ephemeral: true });
     }
-
-    salvarEventos(eventos);
 
     await interaction.message.edit({
       embeds: [criarEmbed(evento)]
