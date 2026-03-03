@@ -342,3 +342,17 @@ client.on("interactionCreate", async i => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+// ================= SERVIDOR WEB PARA RENDER =================
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("Albion Bot está online!");
+});
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Servidor web ativo na porta " + PORT);
+});
