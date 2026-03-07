@@ -76,6 +76,7 @@ function getEmoji(roleName){
   if(name.includes("silence")) return "<:silence:1479601096644104376>";
   if(name.includes("uivo")) return "<:uivo:1479601081544736830>";
   if(name.includes("tank")) return "<:tank:1479709733559730277>";
+  if(name.includes("badon")) return "<:badon:1479710170132119552>";
 
   return "⚔️";
 }
