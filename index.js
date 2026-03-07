@@ -75,7 +75,7 @@ function getEmoji(roleName){
   if(name.includes("quebrareinos")) return "<:quebrareinos:1479601271584325633>";
   if(name.includes("silence")) return "<:silence:1479601096644104376>";
   if(name.includes("uivo")) return "<:uivo:1479601081544736830>";
-  if(name.includes("Tank")) return "<:Tank:1440381136869134500>";
+  if(name.includes("tank")) return "<:tank:1479709733559730277>";
 
   return "⚔️";
 }
