@@ -53,13 +53,29 @@ function loadGroups() {
 
 /* ================= UTIL ================= */
 
-function getEmoji(roleName) {
+function getEmoji(roleName){
+
   const name = roleName.toLowerCase();
-  if (name.includes("tank")) return "🛡️";
-  if (name.includes("heal")) return "💉";
-  if (name.includes("dps")) return "🔥";
-  if (name.includes("arcano")) return "✨";
-  if (name.includes("suporte")) return "🧩";
+
+  if(name.includes("incubus")) return "<:Incubus:1479601055816749212>";
+  if(name.includes("aguia")) return "<:aguia:1479601119612240003>";
+  if(name.includes("chama")) return "<:chamasombra:1479601382318280926>";
+  if(name.includes("dps")) return "<:dps:1479601155582459904>";
+  if(name.includes("foice")) return "<:foice:1479601139338186834>";
+  if(name.includes("fulgurante")) return "<:fulgurante:1479601175157407907>";
+  if(name.includes("healer")) return "<:healer:1479601216831885512>";
+  if(name.includes("mainhealer")) return "<:mainhealer:1479600899067347070>";
+  if(name.includes("maintank")) return "<:maintank:1479600981342949536>";
+  if(name.includes("mongenegro")) return "<:mongenegro:1479601235014320201>";
+  if(name.includes("oculto")) return "<:oculto:1479601337367789621>";
+  if(name.includes("offtank")) return "<:offtank:1479601014440067082>";
+  if(name.includes("paratempo")) return "<:paratempo:1479601362231886007>";
+  if(name.includes("prisma")) return "<:prisma:1479601196938428597>";
+  if(name.includes("ptheal")) return "<:ptheal:1479601036153983058>";
+  if(name.includes("quebrareinos")) return "<:quebrareinos:1479601271584325633>";
+  if(name.includes("silence")) return "<:silence:1479601096644104376>";
+  if(name.includes("uivo")) return "<:uivo:1479601081544736830>";
+
   return "⚔️";
 }
 
