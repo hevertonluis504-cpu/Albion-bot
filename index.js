@@ -66,7 +66,7 @@ function getEmoji(roleName){
   if(name.includes("healer")) return "<:healer:1479601216831885512>";
   if(name.includes("mainhealer")) return "<:mainhealer:1479600899067347070>";
   if(name.includes("maintank")) return "<:maintank:1479600981342949536>";
-  if(name.includes("mongenegro")) return "<:mongenegro:1479601235014320201>";
+  if(name.includes("raizbm")) return "<:raizbm:1479601235014320201>";
   if(name.includes("oculto")) return "<:oculto:1479601337367789621>";
   if(name.includes("offtank")) return "<:offtank:1479601014440067082>";
   if(name.includes("paratempo")) return "<:paratempo:1479601362231886007>";
