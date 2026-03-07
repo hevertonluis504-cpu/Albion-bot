@@ -143,18 +143,21 @@ function buildEmbed(group) {
 /* ================= BOTÕES ================= */
 
 function buildButtons(group) {
+
   const rows = [];
   let currentRow = new ActionRowBuilder();
   const allButtons = [];
 
   for (const key in group.roles) {
+
     const role = group.roles[key];
     const emoji = getEmoji(role.name);
 
     allButtons.push(
       new ButtonBuilder()
         .setCustomId("join_" + key)
-        .setLabel(`${emoji} ${role.name}`)
+        .setEmoji(emoji) 
+        .setLabel(role.name) 
         .setStyle(ButtonStyle.Primary)
     );
   }
