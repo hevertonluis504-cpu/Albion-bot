@@ -209,7 +209,7 @@ client.once(Events.ClientReady, async () => {
       .setDescription("Criar grupo de conteúdo")
       .addStringOption(o=>o.setName("tipo").setDescription("Tipo").setRequired(true))
       .addIntegerOption(o=>o.setName("jogadores").setDescription("Total jogadores").setRequired(true))
-      .addStringOption(o=>o.setName("classes").setDescription("1 Tank, 2 Healer").setRequired(true))
+      .addStringOption(o=>o.setName("classes").setDescription("1 Tank, 1 Healer, 1 chanasombra,2 dps").setRequired(true))
       .addStringOption(o=>o.setName("data").setDescription("DD/MM/AAAA").setRequired(true))
       .addStringOption(o=>o.setName("horario").setDescription("HH:MM UTC-3").setRequired(true))
       .addStringOption(o=>o.setName("descricao").setDescription("Descrição")),
