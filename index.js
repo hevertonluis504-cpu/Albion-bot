@@ -77,6 +77,10 @@ function getEmoji(roleName){
   if(name.includes("uivo")) return "<:uivo:1479601081544736830>";
   if(name.includes("tank")) return "<:tank:1479709733559730277>";
   if(name.includes("badon")) return "<:badon:1479710170132119552>";
+  if(name.includes("raizferrea")) return "<:raizferrea:1480898476324819035>";
+  if(name.includes("arcolongo")) return "<:arcolongo:1480899757189763233>";
+  if(name.includes("susurante")) return "<:susurante:1480899728748314686>";
+  if(name.includes("furabruma")) return "<:furabruma:1480899700549877791>";
 
   return "⚔️";
 }
