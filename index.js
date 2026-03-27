@@ -178,12 +178,9 @@ function buildButtons(group) {
     new ButtonBuilder()
       .setCustomId("ping_all")
       .setLabel("🔔 Ping")
-      .setStyle(ButtonStyle.Secondary),
-
-    new ButtonBuilder()
-      .setCustomId("edit_group")
-      .setLabel("📝 Editar")
       .setStyle(ButtonStyle.Secondary)
+
+    
   );
 
   for (const button of allButtons) {
