@@ -81,6 +81,7 @@ function getEmoji(roleName){
   if(name.includes("arcolongo")) return "<:arcolongo:1480899757189763233>";
   if(name.includes("susurante")) return "<:susurante:1480899728748314686>";
   if(name.includes("furabruma")) return "<:furabruma:1480899700549877791>";
+  if(name.includes("bruxo")) return "<:bruxo:1487148891928264735>";
 
   return "⚔️";
 }
