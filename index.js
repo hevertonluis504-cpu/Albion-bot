@@ -1,4 +1,3 @@
-// INDEX ORIGINAL + SISTEMA DE EDITAR ADICIONADO (SEM REMOVER NADA)
 require("dotenv").config();
 const fs = require("fs");
 const {
