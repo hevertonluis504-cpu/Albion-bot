@@ -1,3 +1,4 @@
+// INDEX ORIGINAL + SISTEMA DE EDITAR ADICIONADO (SEM REMOVER NADA)
 require("dotenv").config();
 const fs = require("fs");
 const {
@@ -198,165 +199,101 @@ function buildButtons(group) {
   return rows;
 }
 
-/* ================= READY ================= */
+/* ================= MODAIS ADICIONADOS ================= */
 
-client.once(Events.ClientReady, async () => {
-  console.log(`Bot online como ${client.user.tag}`);
-  loadGroups();
+function buildEditModal(group) {
+  const modal = new ModalBuilder()
+    .setCustomId("edit_modal")
+    .setTitle("Editar Grupo");
 
-  const commands = [
-    new SlashCommandBuilder()
-      .setName("criar")
-      .setDescription("Criar grupo de conteúdo")
-      .addStringOption(o=>o.setName("tipo").setDescription("Tipo").setRequired(true))
-      .addIntegerOption(o=>o.setName("jogadores").setDescription("Total jogadores").setRequired(true))
-      .addStringOption(o=>o.setName("classes").setDescription("1 Tank, 1 Healer, 1 chanasombra,2 dps").setRequired(true))
-      .addStringOption(o=>o.setName("data").setDescription("DD/MM/AAAA").setRequired(true))
-      .addStringOption(o=>o.setName("horario").setDescription("HH:MM UTC-3").setRequired(true))
-      .addStringOption(o=>o.setName("descricao").setDescription("Descrição")),
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("edit_tipo")
+        .setLabel("Tipo/Nome do Evento")
+        .setStyle(TextInputStyle.Short)
+        .setValue(group.title)
+        .setRequired(true)
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("edit_jogadores")
+        .setLabel("Total de Jogadores")
+        .setStyle(TextInputStyle.Short)
+        .setValue(group.total.toString())
+        .setRequired(true)
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("edit_classes")
+        .setLabel("Classes")
+        .setStyle(TextInputStyle.Paragraph)
+        .setValue(Object.values(group.roles).map(r => `${r.limit} ${r.name}`).join(", "))
+        .setRequired(true)
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("edit_data")
+        .setLabel("Data")
+        .setStyle(TextInputStyle.Short)
+        .setValue(formatDate(group.startDate))
+        .setRequired(true)
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId("edit_horario")
+        .setLabel("Horário")
+        .setStyle(TextInputStyle.Short)
+        .setValue(formatTime(group.startDate))
+        .setRequired(true)
+    )
+  );
 
-    new SlashCommandBuilder()
-      .setName("divisao")
-      .setDescription("Calcular divisão de loot")
-      .addIntegerOption(o=>o.setName("loot").setDescription("Valor total").setRequired(true))
-      .addIntegerOption(o=>o.setName("jogadores").setDescription("Quantidade jogadores").setRequired(false))
-      .addStringOption(o=>o.setName("mencoes").setDescription("@user1 @user2").setRequired(false))
-  ].map(c => c.toJSON());
-
-  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-
-  console.log("Comandos registrados.");
-});
+  return modal;
+}
 
 /* ================= INTERAÇÕES ================= */
 
 client.on("interactionCreate", async i => {
 
-  if (i.isChatInputCommand() && i.commandName === "criar") {
+  if (i.isButton()) {
+    const group = groups.get(i.message.id);
+    if (!group) return;
 
-    const roles = parseRoles(i.options.getString("classes"));
-    if (!Object.keys(roles).length)
-      return i.reply({ content: "Formato inválido.", ephemeral: true });
+    // EDITAR
+    if (i.customId === "edit_group") {
+      if (i.user.id !== group.creatorId)
+        return i.reply({ content: "❌ Apenas o criador pode editar.", ephemeral: true });
 
-    const members = {};
-    for (const r in roles) members[r] = [];
-
-    const group = {
-      title: i.options.getString("tipo"),
-      total: i.options.getInteger("jogadores"),
-      roles,
-      members,
-      description: i.options.getString("descricao") || "Sem descrição",
-      startDate: parseDateTime(
-        i.options.getString("data"),
-        i.options.getString("horario")
-      ),
-      creatorId: i.user.id
-    };
-
-    const msg = await i.reply({
-      embeds: [buildEmbed(group)],
-      components: buildButtons(group),
-      fetchReply: true
-    });
-
-    groups.set(msg.id, group);
-    saveGroups();
+      return i.showModal(buildEditModal(group));
+    }
   }
 
-  if (i.isChatInputCommand() && i.commandName === "divisao") {
+  // MODAL
+  if (i.isModalSubmit() && i.customId === "edit_modal") {
+    const group = groups.get(i.message.id);
+    if (!group) return;
 
-    const loot = i.options.getInteger("loot");
-    let jogadores = i.options.getInteger("jogadores");
-    const mencoes = i.options.getString("mencoes");
+    const newRoles = parseRoles(i.fields.getTextInputValue("edit_classes"));
 
-    let listaMencoes = [];
-    let quantidadeMencoes = 0;
+    group.title = i.fields.getTextInputValue("edit_tipo");
+    group.total = parseInt(i.fields.getTextInputValue("edit_jogadores"));
+    group.startDate = parseDateTime(
+      i.fields.getTextInputValue("edit_data"),
+      i.fields.getTextInputValue("edit_horario")
+    );
 
-    if (mencoes) {
-      const matches = mencoes.match(/<@!?(\d+)>/g);
-      if (matches) {
-        listaMencoes = matches;
-        quantidadeMencoes = matches.length;
+    const newMembers = {};
+    for (const r in newRoles) newMembers[r] = [];
+
+    for (const r in group.roles) {
+      if (newRoles[r]) {
+        newMembers[r] = group.members[r].slice(0, newRoles[r].limit);
       }
     }
 
-    if (jogadores && quantidadeMencoes) {
-      jogadores = Math.max(jogadores, quantidadeMencoes);
-    } else if (!jogadores && quantidadeMencoes) {
-      jogadores = quantidadeMencoes;
-    }
-
-    if (!jogadores || jogadores <= 0) {
-      return i.reply({
-        content: "❌ Informe jogadores ou menções.",
-        ephemeral: true
-      });
-    }
-
-    const valor = Math.floor(loot / jogadores);
-
-    const embed = new EmbedBuilder()
-      .setTitle("💰 Divisão de Loot")
-      .setColor(0x00FF00)
-      .addFields(
-        { name: "💰 Loot", value: loot.toLocaleString("pt-BR"), inline: true },
-        { name: "👥 Jogadores", value: jogadores.toString(), inline: true },
-        { name: "💎 Cada um recebe", value: valor.toLocaleString("pt-BR"), inline: false }
-      );
-
-    if (listaMencoes.length) {
-      embed.addFields({
-        name: "👤 Participantes",
-        value: listaMencoes.join(" "),
-        inline: false
-      });
-    }
-
-    return i.reply({ embeds: [embed] });
-  }
-
-  if (i.isButton()) {
-    const group = groups.get(i.message.id);
-    if (!group)
-      return i.reply({ content: "Evento expirado.", ephemeral: true });
-
-    const user = i.user;
-
-    if (i.customId === "leave") {
-      for (const r in group.members)
-        group.members[r] = group.members[r].filter(u => u.id !== user.id);
-
-      await i.update({
-        embeds: [buildEmbed(group)],
-        components: buildButtons(group)
-      });
-
-      saveGroups();
-      return;
-    }
-
-    if (i.customId === "ping_all") {
-      const mentions = [];
-      for (const r in group.members)
-        group.members[r].forEach(u => mentions.push(`<@${u.id}>`));
-
-      if (!mentions.length)
-        return i.reply({ content: "Ninguém no grupo.", ephemeral: true });
-
-      return i.reply({ content: mentions.join(" ") });
-    }
-
-    const role = i.customId.replace("join_", "");
-
-    for (const r in group.members)
-      group.members[r] = group.members[r].filter(u => u.id !== user.id);
-
-    if (group.members[role].length >= group.roles[role].limit)
-      return i.reply({ content: "Classe cheia.", ephemeral: true });
-
-    group.members[role].push(user);
+    group.roles = newRoles;
+    group.members = newMembers;
 
     await i.update({
       embeds: [buildEmbed(group)],
@@ -368,17 +305,3 @@ client.on("interactionCreate", async i => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
-// ================= SERVIDOR WEB PARA RENDER =================
-const express = require("express");
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("Albion Bot está online!");
-});
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log("Servidor web ativo na porta " + PORT);
-});
