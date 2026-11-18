@@ -1,18 +1,8 @@
 
 const {
-  Client,
-  GatewayIntentBits,
-  REST,
-  Routes,
-  SlashCommandBuilder,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  PermissionFlagsBits
+  Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder,
+  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits
 } = require("discord.js");
 
 const express = require("express");
@@ -25,6 +15,7 @@ const GUILD_IDS = (process.env.GUILD_ID || "")
   .split(",")
   .map(id => id.trim())
   .filter(Boolean);
+
 const PORT = process.env.PORT || 10000;
 
 if (!TOKEN || !CLIENT_ID) {
@@ -36,18 +27,23 @@ const dataDir = path.join(__dirname, "..", "data");
 const dataFile = path.join(dataDir, "events.json");
 const configFile = path.join(dataDir, "config.json");
 
+const defaultClasses = [
+  { emoji: "💚", name: "HEALER" },
+  { emoji: "🛡️", name: "TANK" },
+  { emoji: "⚔️", name: "DPSs" }
+];
+
 fs.mkdirSync(dataDir, { recursive: true });
 
-if (!fs.existsSync(dataFile)) fs.writeFileSync(dataFile, "{}");
+if (!fs.existsSync(dataFile)) {
+  fs.writeFileSync(dataFile, "{}");
+}
 
 if (!fs.existsSync(configFile)) {
-  fs.writeFileSync(configFile, JSON.stringify({
-    classes: [
-      { emoji: "💚", name: "HEALER" },
-      { emoji: "🛡️", name: "TANK" },
-      { emoji: "⚔️", name: "DPSs" }
-    ]
-  }, null, 2));
+  fs.writeFileSync(
+    configFile,
+    JSON.stringify({ classes: defaultClasses }, null, 2)
+  );
 }
 
 function loadJSON(file, fallback) {
@@ -58,14 +54,65 @@ function loadJSON(file, fallback) {
   }
 }
 
-let events = loadJSON(dataFile, {});
-let settings = loadJSON(configFile, {
-  classes: [
-    { emoji: "💚", name: "HEALER" },
-    { emoji: "🛡️", name: "TANK" },
-    { emoji: "⚔️", name: "DPSs" }
-  ]
-});
+const savedEvents = loadJSON(dataFile, {});
+const savedSettings = loadJSON(configFile, {});
+const firstGuildId = GUILD_IDS[0] || "legacy";
+
+// Migração dos eventos antigos para o primeiro servidor configurado.
+let events = {};
+
+const hasFlatEvents = Object.values(savedEvents).some(value =>
+  value &&
+  typeof value === "object" &&
+  !Array.isArray(value) &&
+  value.id
+);
+
+if (hasFlatEvents) {
+  events[firstGuildId] = savedEvents;
+
+  for (const event of Object.values(events[firstGuildId])) {
+    event.guildId ||= firstGuildId;
+  }
+} else {
+  events = savedEvents || {};
+}
+
+// Migração das configurações antigas.
+let settings = {};
+
+if (Array.isArray(savedSettings.classes)) {
+  const ids = GUILD_IDS.length ? GUILD_IDS : [firstGuildId];
+
+  for (const guildId of ids) {
+    settings[guildId] = {
+      classes: savedSettings.classes.map(c => ({
+        emoji: c.emoji,
+        name: c.name
+      }))
+    };
+  }
+} else {
+  settings = savedSettings || {};
+}
+
+function getGuildEvents(guildId) {
+  if (!events[guildId]) {
+    events[guildId] = {};
+  }
+
+  return events[guildId];
+}
+
+function getGuildSettings(guildId) {
+  if (!settings[guildId]) {
+    settings[guildId] = {
+      classes: defaultClasses.map(c => ({ ...c }))
+    };
+  }
+
+  return settings[guildId];
+}
 
 function saveData() {
   fs.writeFileSync(dataFile, JSON.stringify(events, null, 2));
@@ -88,10 +135,9 @@ const commands = [
 
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(TOKEN);
-
   const commandList = commands.map(c => c.toJSON());
 
-  if (GUILD_IDS.length > 0) {
+  if (GUILD_IDS.length) {
     for (const guildId of GUILD_IDS) {
       await rest.put(
         Routes.applicationGuildCommands(CLIENT_ID, guildId),
@@ -110,7 +156,7 @@ async function registerCommands() {
   }
 }
 
-// HORÁRIO DE BRASÍLIA (UTC-3)
+// Converte horário de Brasília (UTC-3) para timestamp Unix.
 function getEventTimestamp(date, time) {
   const [day, month, year] = date.split("/").map(Number);
   const [hour, minute] = time.split(":").map(Number);
@@ -120,7 +166,6 @@ function getEventTimestamp(date, time) {
   );
 }
 
-// PAINEL PRINCIPAL
 function makePanel() {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
@@ -155,9 +200,9 @@ function makePanel() {
   };
 }
 
-// LER CLASSES
 function parseClasses(raw) {
-  const lines = raw.split("\n")
+  const lines = raw
+    .split("\n")
     .map(x => x.trim())
     .filter(Boolean);
 
@@ -186,7 +231,6 @@ function parseClasses(raw) {
   });
 }
 
-// EMBED DO EVENTO
 function makeEventEmbed(event) {
   const timestamp = getEventTimestamp(event.date, event.time);
 
@@ -200,8 +244,8 @@ function makeEventEmbed(event) {
     .setDescription(
       `📅 **${event.date} às ${event.time}**\n` +
       `⏳ **Tempo restante:** <t:${timestamp}:R>\n` +
-      `${event.description ? `📝 ${event.description}\n` : ""}` +
-      "\n**Inscrições por classe**"
+      `${event.description ? `📝 ${event.description}\n` : ""}\n` +
+      "**Inscrições por classe**"
     )
     .setFooter({
       text: `Evento criado por ${event.createdByName}`
@@ -209,12 +253,14 @@ function makeEventEmbed(event) {
     .setTimestamp(new Date(event.createdAt));
 
   for (const cls of event.classes) {
-    const mentions = cls.users.length
-      ? cls.users.map(id => `<@${id}>`).join("\n")
+    const users = cls.users || [];
+
+    const mentions = users.length
+      ? users.map(id => `<@${id}>`).join("\n")
       : "_Ninguém inscrito ainda_";
 
     embed.addFields({
-      name: `${cls.emoji} ${cls.name} • ${cls.users.length}`,
+      name: `${cls.emoji} ${cls.name} • ${users.length}`,
       value: mentions.slice(0, 1024)
     });
   }
@@ -222,7 +268,6 @@ function makeEventEmbed(event) {
   return embed;
 }
 
-// BOTÕES DO EVENTO
 function makeEventComponents(event) {
   const rows = [];
   let current = new ActionRowBuilder();
@@ -244,7 +289,9 @@ function makeEventComponents(event) {
     }
   }
 
-  if (current.components.length) rows.push(current);
+  if (current.components.length) {
+    rows.push(current);
+  }
 
   const actions = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -260,43 +307,75 @@ function makeEventComponents(event) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  if (rows.length < 5) rows.push(actions);
+  if (rows.length < 5) {
+    rows.push(actions);
+  }
 
   return rows;
 }
 
-// FORMULÁRIO DE EVENTO
-function buildModal(customId, event = null) {
+function buildModal(customId, guildId, event = null) {
   const modal = new ModalBuilder()
     .setCustomId(customId)
     .setTitle(event ? "Editar evento" : "Criar evento");
 
-  const defaultClasses = settings.classes
+  const defaultClassesText = getGuildSettings(guildId)
+    .classes
     .map(c => `${c.emoji} | ${c.name}`)
     .join("\n");
 
   const fields = [
-    ["title", "Título do evento", TextInputStyle.Short,
-      event?.title || "", "Nome do evento", true],
-
-    ["date", "Data", TextInputStyle.Short,
-      event?.date || "", "DD/MM/AAAA", true],
-
-    ["time", "Horário", TextInputStyle.Short,
-      event?.time || "", "HH:MM", true],
-
-    ["description", "Descrição", TextInputStyle.Paragraph,
-      event?.description || "", "Informações do evento", false],
-
-    ["classes", "Emojis e nomes das classes", TextInputStyle.Paragraph,
+    [
+      "title",
+      "Título do evento",
+      TextInputStyle.Short,
+      event?.title || "",
+      "Nome do evento",
+      true
+    ],
+    [
+      "date",
+      "Data",
+      TextInputStyle.Short,
+      event?.date || "",
+      "DD/MM/AAAA",
+      true
+    ],
+    [
+      "time",
+      "Horário",
+      TextInputStyle.Short,
+      event?.time || "",
+      "HH:MM",
+      true
+    ],
+    [
+      "description",
+      "Descrição",
+      TextInputStyle.Paragraph,
+      event?.description || "",
+      "Informações do evento",
+      false
+    ],
+    [
+      "classes",
+      "Emojis e nomes das classes",
+      TextInputStyle.Paragraph,
       event
         ? event.classes.map(c => `${c.emoji} | ${c.name}`).join("\n")
-        : defaultClasses,
-      "emoji | nome (uma classe por linha)", true]
+        : defaultClassesText,
+      "emoji | nome (uma classe por linha)",
+      true
+    ]
   ];
 
   for (const [
-    id, label, style, value, placeholder, required
+    id,
+    label,
+    style,
+    value,
+    placeholder,
+    required
   ] of fields) {
     const input = new TextInputBuilder()
       .setCustomId(id)
@@ -308,7 +387,9 @@ function buildModal(customId, event = null) {
       )
       .setPlaceholder(placeholder);
 
-    if (value) input.setValue(value.slice(0, 1000));
+    if (value) {
+      input.setValue(value.slice(0, 1000));
+    }
 
     modal.addComponents(
       new ActionRowBuilder().addComponents(input)
@@ -318,8 +399,7 @@ function buildModal(customId, event = null) {
   return modal;
 }
 
-// FORMULÁRIO DE CONFIGURAÇÃO
-function buildSettingsModal() {
+function buildSettingsModal(guildId) {
   const modal = new ModalBuilder()
     .setCustomId("settings_modal")
     .setTitle("Configurar classes");
@@ -331,11 +411,14 @@ function buildSettingsModal() {
     .setRequired(true)
     .setMaxLength(1000)
     .setValue(
-      settings.classes
+      getGuildSettings(guildId)
+        .classes
         .map(c => `${c.emoji} | ${c.name}`)
         .join("\n")
     )
-    .setPlaceholder("💚 | HEALER\n🛡️ | TANK\n⚔️ | DPS");
+    .setPlaceholder(
+      "💚 | HEALER\n🛡️ | TANK\n⚔️ | DPS"
+    );
 
   modal.addComponents(
     new ActionRowBuilder().addComponents(input)
@@ -345,14 +428,15 @@ function buildSettingsModal() {
 }
 
 function validDateTime(date, time) {
-  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(date)) return false;
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(date)) {
+    return false;
+  }
 
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
     return false;
   }
 
   const [d, m, y] = date.split("/").map(Number);
-
   const check = new Date(y, m - 1, d);
 
   return (
@@ -362,12 +446,13 @@ function validDateTime(date, time) {
   );
 }
 
-// ATUALIZAR MENSAGEM
 async function refreshEvent(event) {
   try {
     const channel = await client.channels.fetch(event.channelId);
 
-    if (!channel || !channel.isTextBased()) return;
+    if (!channel || !channel.isTextBased()) {
+      return;
+    }
 
     const message = await channel.messages.fetch(event.messageId);
 
@@ -376,83 +461,104 @@ async function refreshEvent(event) {
       components: makeEventComponents(event)
     });
   } catch (error) {
-    console.error("Erro ao atualizar evento:", error.message);
+    console.error(
+      "Erro ao atualizar evento:",
+      error.message
+    );
   }
 }
 
-// AVISOS AUTOMÁTICOS
 async function checkEventNotifications() {
   const now = Math.floor(Date.now() / 1000);
 
-  for (const event of Object.values(events)) {
-    if (event.noticeSent) continue;
+  for (const guildEvents of Object.values(events)) {
+    for (const event of Object.values(guildEvents || {})) {
+      if (!event || event.noticeSent) {
+        continue;
+      }
 
-    const eventTime = getEventTimestamp(event.date, event.time);
-    const difference = eventTime - now;
+      const difference =
+        getEventTimestamp(event.date, event.time) - now;
 
-    // Avisar quando faltar 30 minutos ou menos,
-    // desde que o evento ainda não tenha começado.
-    if (difference > 0 && difference <= 30 * 60) {
-      const userIds = [
-        ...new Set(
-          event.classes.flatMap(cls => cls.users || [])
-        )
-      ];
-
-      try {
-        const channel = await client.channels.fetch(event.channelId);
-
-        if (!channel || !channel.isTextBased()) continue;
-
-        const mentions = userIds.map(id => `<@${id}>`).join(" ");
-
-        const embed = new EmbedBuilder()
-          .setColor(0xffa500)
-          .setTitle("⏰ EVENTO COMEÇANDO EM BREVE!")
-          .setDescription(
-            `**${event.title}**\n\n` +
-            `📅 ${event.date} às ${event.time}\n` +
-            "⏳ Faltam aproximadamente 30 minutos!\n\n" +
-            (mentions || "Nenhum jogador inscrito.")
+      if (difference > 0 && difference <= 30 * 60) {
+        const userIds = [
+          ...new Set(
+            event.classes.flatMap(cls => cls.users || [])
           )
-          .setTimestamp();
+        ];
 
-        await channel.send({
-          embeds: [embed],
-          allowedMentions: {
-            users: userIds
+        try {
+          const channel = await client.channels.fetch(
+            event.channelId
+          );
+
+          if (!channel || !channel.isTextBased()) {
+            continue;
           }
-        });
 
-        event.noticeSent = true;
-        event.noticeSentAt = new Date().toISOString();
+          const mentions = userIds
+            .map(id => `<@${id}>`)
+            .join(" ");
 
-        saveData();
+          const embed = new EmbedBuilder()
+            .setColor(0xffa500)
+            .setTitle("⏰ EVENTO COMEÇANDO EM BREVE!")
+            .setDescription(
+              `**${event.title}**\n\n` +
+              `📅 ${event.date} às ${event.time}\n` +
+              "⏳ Faltam aproximadamente 30 minutos!\n\n" +
+              `${mentions || "Nenhum jogador inscrito."}`
+            )
+            .setTimestamp();
 
-        console.log(`Aviso enviado: ${event.title}`);
+          await channel.send({
+            embeds: [embed],
+            allowedMentions: { users: userIds }
+          });
 
-      } catch (error) {
-        console.error(
-          `Erro no aviso do evento ${event.title}:`,
-          error.message
-        );
+          event.noticeSent = true;
+          event.noticeSentAt = new Date().toISOString();
+
+          saveData();
+
+          console.log(`Aviso enviado: ${event.title}`);
+        } catch (error) {
+          console.error(
+            `Erro no aviso do evento ${event.title}:`,
+            error.message
+          );
+        }
       }
     }
   }
 }
 
-// INTERAÇÕES
 client.on("interactionCreate", async interaction => {
   try {
+    if (!interaction.guildId) {
+      if (interaction.isRepliable()) {
+        await interaction.reply({
+          content: "Este recurso só funciona dentro de um servidor.",
+          ephemeral: true
+        });
+      }
 
-    // COMANDO PAINEL
+      return;
+    }
+
+    const guildId = interaction.guildId;
+    const guildEvents = getGuildEvents(guildId);
+
+    // COMANDO /PAINEL
     if (
       interaction.isChatInputCommand() &&
       interaction.commandName === "painel"
     ) {
-      if (!interaction.memberPermissions?.has(
-        PermissionFlagsBits.ManageGuild
-      )) {
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.ManageGuild
+        )
+      ) {
         return interaction.reply({
           content: "Você precisa ser administrador.",
           ephemeral: true
@@ -467,41 +573,47 @@ client.on("interactionCreate", async interaction => {
       });
     }
 
-    // CRIAR EVENTO
+    // BOTÃO CRIAR EVENTO
     if (
       interaction.isButton() &&
       interaction.customId === "event_create"
     ) {
       return interaction.showModal(
-        buildModal("event_modal:new")
+        buildModal("event_modal:new", guildId)
       );
     }
 
-    // CONFIGURAR CLASSES
+    // BOTÃO CONFIGURAR CLASSES
     if (
       interaction.isButton() &&
       interaction.customId === "event_settings"
     ) {
-      if (!interaction.memberPermissions?.has(
-        PermissionFlagsBits.ManageGuild
-      )) {
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.ManageGuild
+        )
+      ) {
         return interaction.reply({
           content: "Somente administradores podem configurar as classes.",
           ephemeral: true
         });
       }
 
-      return interaction.showModal(buildSettingsModal());
+      return interaction.showModal(
+        buildSettingsModal(guildId)
+      );
     }
 
-    // SALVAR CONFIGURAÇÕES
+    // SALVAR CONFIGURAÇÃO DE CLASSES
     if (
       interaction.isModalSubmit() &&
       interaction.customId === "settings_modal"
     ) {
-      if (!interaction.memberPermissions?.has(
-        PermissionFlagsBits.ManageGuild
-      )) {
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.ManageGuild
+        )
+      ) {
         return interaction.reply({
           content: "Você não tem permissão para alterar as classes.",
           ephemeral: true
@@ -513,7 +625,7 @@ client.on("interactionCreate", async interaction => {
           interaction.fields.getTextInputValue("classes")
         );
 
-        settings.classes = classes.map(c => ({
+        getGuildSettings(guildId).classes = classes.map(c => ({
           emoji: c.emoji,
           name: c.name
         }));
@@ -521,10 +633,9 @@ client.on("interactionCreate", async interaction => {
         saveSettings();
 
         return interaction.reply({
-          content: "⚙️ Classes e emojis salvos! Eles serão usados nos próximos eventos.",
+          content: "⚙️ Classes e emojis salvos neste servidor!",
           ephemeral: true
         });
-
       } catch (error) {
         return interaction.reply({
           content: error.message,
@@ -533,7 +644,7 @@ client.on("interactionCreate", async interaction => {
       }
     }
 
-    // ENTRAR EM CLASSE
+    // INSCREVER-SE EM UMA CLASSE
     if (
       interaction.isButton() &&
       interaction.customId.startsWith("join:")
@@ -541,18 +652,18 @@ client.on("interactionCreate", async interaction => {
       const [, eventId, classIndexText] =
         interaction.customId.split(":");
 
-      const event = events[eventId];
+      const event = guildEvents[eventId];
       const classIndex = Number(classIndexText);
 
       if (!event || !event.classes[classIndex]) {
         return interaction.reply({
-          content: "Evento não encontrado.",
+          content: "Evento não encontrado neste servidor.",
           ephemeral: true
         });
       }
 
       for (const cls of event.classes) {
-        cls.users = cls.users.filter(
+        cls.users = (cls.users || []).filter(
           id => id !== interaction.user.id
         );
       }
@@ -562,11 +673,14 @@ client.on("interactionCreate", async interaction => {
       );
 
       saveData();
+
       await refreshEvent(event);
 
       return interaction.reply({
         content:
-          `Inscrição confirmada: ${event.classes[classIndex].emoji} ${event.classes[classIndex].name}.`,
+          `Inscrição confirmada: ` +
+          `${event.classes[classIndex].emoji} ` +
+          `${event.classes[classIndex].name}.`,
         ephemeral: true
       });
     }
@@ -577,22 +691,23 @@ client.on("interactionCreate", async interaction => {
       interaction.customId.startsWith("leave:")
     ) {
       const eventId = interaction.customId.split(":")[1];
-      const event = events[eventId];
+      const event = guildEvents[eventId];
 
       if (!event) {
         return interaction.reply({
-          content: "Evento não encontrado.",
+          content: "Evento não encontrado neste servidor.",
           ephemeral: true
         });
       }
 
       for (const cls of event.classes) {
-        cls.users = cls.users.filter(
+        cls.users = (cls.users || []).filter(
           id => id !== interaction.user.id
         );
       }
 
       saveData();
+
       await refreshEvent(event);
 
       return interaction.reply({
@@ -607,18 +722,19 @@ client.on("interactionCreate", async interaction => {
       interaction.customId.startsWith("edit:")
     ) {
       const eventId = interaction.customId.split(":")[1];
-      const event = events[eventId];
+      const event = guildEvents[eventId];
 
       if (!event) {
         return interaction.reply({
-          content: "Evento não encontrado.",
+          content: "Evento não encontrado neste servidor.",
           ephemeral: true
         });
       }
 
-      const isAdmin = interaction.memberPermissions?.has(
-        PermissionFlagsBits.ManageGuild
-      );
+      const isAdmin =
+        interaction.memberPermissions?.has(
+          PermissionFlagsBits.ManageGuild
+        );
 
       if (
         interaction.user.id !== event.createdBy &&
@@ -631,11 +747,11 @@ client.on("interactionCreate", async interaction => {
       }
 
       return interaction.showModal(
-        buildModal(`event_modal:${eventId}`, event)
+        buildModal(`event_modal:${eventId}`, guildId, event)
       );
     }
 
-    // SALVAR EVENTO
+    // CRIAR OU SALVAR EDIÇÃO DO EVENTO
     if (
       interaction.isModalSubmit() &&
       interaction.customId.startsWith("event_modal:")
@@ -643,16 +759,20 @@ client.on("interactionCreate", async interaction => {
       const eventId = interaction.customId.split(":")[1];
 
       const title = interaction.fields
-        .getTextInputValue("title").trim();
+        .getTextInputValue("title")
+        .trim();
 
       const date = interaction.fields
-        .getTextInputValue("date").trim();
+        .getTextInputValue("date")
+        .trim();
 
       const time = interaction.fields
-        .getTextInputValue("time").trim();
+        .getTextInputValue("time")
+        .trim();
 
       const description = interaction.fields
-        .getTextInputValue("description").trim();
+        .getTextInputValue("description")
+        .trim();
 
       if (!validDateTime(date, time)) {
         return interaction.reply({
@@ -680,6 +800,7 @@ client.on("interactionCreate", async interaction => {
 
         const event = {
           id,
+          guildId,
           title,
           date,
           time,
@@ -700,7 +821,7 @@ client.on("interactionCreate", async interaction => {
 
         event.messageId = message.id;
 
-        events[id] = event;
+        guildEvents[id] = event;
 
         saveData();
 
@@ -711,11 +832,11 @@ client.on("interactionCreate", async interaction => {
       }
 
       // EDITAR EVENTO EXISTENTE
-      const event = events[eventId];
+      const event = guildEvents[eventId];
 
       if (!event) {
         return interaction.reply({
-          content: "Evento não encontrado.",
+          content: "Evento não encontrado neste servidor.",
           ephemeral: true
         });
       }
@@ -727,12 +848,12 @@ client.on("interactionCreate", async interaction => {
       classes = classes.map(newClass => {
         const old = oldClasses.find(
           c => c.name.toLowerCase() ===
-            newClass.name.toLowerCase()
+               newClass.name.toLowerCase()
         );
 
         return {
           ...newClass,
-          users: old ? old.users : []
+          users: old ? (old.users || []) : []
         };
       });
 
@@ -744,13 +865,13 @@ client.on("interactionCreate", async interaction => {
         classes
       });
 
-      // Se mudar data ou horário, permitir novo aviso.
       if (oldDate !== date || oldTime !== time) {
         event.noticeSent = false;
         delete event.noticeSentAt;
       }
 
       saveData();
+
       await refreshEvent(event);
 
       return interaction.reply({
@@ -781,22 +902,22 @@ client.on("interactionCreate", async interaction => {
   }
 });
 
-// SERVIDOR RENDER
+// SERVIDOR HTTP PARA O RENDER
 const app = express();
 
-app.get("/", (_req, res) =>
-  res.send("Albion Contents Bot online.")
-);
+app.get("/", (_req, res) => {
+  res.send("Albion Contents Bot online.");
+});
 
-app.get("/health", (_req, res) =>
-  res.status(200).send("ok")
-);
+app.get("/health", (_req, res) => {
+  res.status(200).send("ok");
+});
 
-app.listen(PORT, () =>
-  console.log(`Servidor HTTP ativo na porta ${PORT}.`)
-);
+app.listen(PORT, () => {
+  console.log(`Servidor HTTP ativo na porta ${PORT}.`);
+});
 
-// INICIALIZAÇÃO
+// INICIALIZAÇÃO DO BOT
 client.once("clientReady", async () => {
   console.log(`Bot conectado como ${client.user.tag}`);
 
@@ -806,10 +927,8 @@ client.once("clientReady", async () => {
     console.error("Erro ao registrar comandos:", error);
   }
 
-  // Verificar avisos a cada 30 segundos.
   setInterval(checkEventNotifications, 30 * 1000);
 
-  // Verificar imediatamente ao iniciar.
   checkEventNotifications();
 });
 
