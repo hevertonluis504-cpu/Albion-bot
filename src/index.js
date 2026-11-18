@@ -21,7 +21,10 @@ const path = require("node:path");
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID;
+const GUILD_IDS = (process.env.GUILD_ID || "")
+  .split(",")
+  .map(id => id.trim())
+  .filter(Boolean);
 const PORT = process.env.PORT || 10000;
 
 if (!TOKEN || !CLIENT_ID) {
@@ -86,15 +89,25 @@ const commands = [
 async function registerCommands() {
   const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-  const route = GUILD_ID
-    ? Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID)
-    : Routes.applicationCommands(CLIENT_ID);
+  const commandList = commands.map(c => c.toJSON());
 
-  await rest.put(route, {
-    body: commands.map(c => c.toJSON())
-  });
+  if (GUILD_IDS.length > 0) {
+    for (const guildId of GUILD_IDS) {
+      await rest.put(
+        Routes.applicationGuildCommands(CLIENT_ID, guildId),
+        { body: commandList }
+      );
 
-  console.log("Comando /painel registrado.");
+      console.log(`Comando /painel registrado no servidor: ${guildId}`);
+    }
+  } else {
+    await rest.put(
+      Routes.applicationCommands(CLIENT_ID),
+      { body: commandList }
+    );
+
+    console.log("Comando /painel registrado globalmente.");
+  }
 }
 
 // HORÁRIO DE BRASÍLIA (UTC-3)
